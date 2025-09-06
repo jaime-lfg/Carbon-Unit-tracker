@@ -440,6 +440,45 @@
 
         // Initialize counts
         updateCounts();
+        // Add double-click edit functionality
+function handleDoubleClick(unitCard) {
+    const unitId = unitCard.dataset.unitId;
+    const category = unitCard.dataset.category;
+    
+    // Find the unit data
+    const unit = units[category].find(u => u.id === unitId);
+    if (unit) {
+        editingUnit = { unit, category };
+        openEditModal(unit);
+    }
+}
+
+// Update your existing renderGrid function to add double-click listeners
+// Add this after creating each unit card:
+card.addEventListener('dblclick', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    console.log('Double clicked!'); // Debug
+    handleDoubleClick(this);
+});
+
+// Add the edit modal function (same form as add, but pre-filled)
+function openEditModal(unit) {
+    document.getElementById('modal-title').textContent = 'Edit Unit';
+    document.getElementById('submit-btn').textContent = 'Save Changes';
+    
+    // Pre-fill form with existing data
+    document.getElementById('company').value = unit.company || '';
+    document.getElementById('config').value = unit.config || '';
+    document.getElementById('serial').value = unit.serial || '';
+    document.getElementById('implementationDate').value = unit.implementationDate || '';
+    document.getElementById('wheelSpacing').value = unit.wheelSpacing || '';
+    document.getElementById('region').value = unit.region || '';
+    document.getElementById('category').value = editingUnit.category;
+    document.getElementById('isImplemented').checked = unit.isImplemented || false;
+    
+    document.getElementById('modal').style.display = 'flex';
+}
     </script>
 </body>
 </html>
