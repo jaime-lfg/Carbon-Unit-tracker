@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Carbon Robotics Unit Tracker</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: system-ui, -apple-system, sans-serif;
+            background: #000;
+            color: #fff;
+            padding: 20px;
+        }
+        .container { max-width: 1400px; margin: 0 auto; }
+        .header { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .title { font-size: 24px; font-weight: bold; }
+        .btn {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .btn:hover { background: #2563eb; }
+        .btn-green { background: #10b981; }
+        .btn-green:hover { background: #059669; }
+        .columns {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+        }
+        .column {
+            background: #1f2937;
+            border-radius: 8px;
+            padding: 12px;
+            min-height: 300px;
+        }
+        .column-header {
+            text-align: center;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #374151;
+            margin-bottom: 10px;
+        }
+        .column-title { font-weight: 600; }
+        .unit-card {
+            background: #3b82f6;
+            color: #000;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            cursor: move;
+        }
+        .unit-card.green { background: #10b981; }
+        .unit-card.gray { background: #6b7280; }
+        .unit-card.red { background: #ef4444; }
+        .unit-number { font-size: 20px; font-weight: bold; }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            align-items: center;
+            justify-content: center;
+        }
+        .modal.active { display: flex; }
+        .modal-content {
+            background: #374151;
+            padding: 24px;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .form-group {
+            margin-bottom: 16px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 4px;
+            font-size: 14px;
+        }
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            padding: 8px;
+            background: #1f2937;
+            border: 1px solid #4b5563;
+            color: white;
+            border-radius: 4px;
+        }
+        .button-group {
+            display: flex;
+            gap: 12px;
+            margin-top: 20px;
+        }
+        .button-group button {
+            flex: 1;
+        }
+        @media (max-width: 768px) {
+            .columns {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div style="display: flex; align-items: center; gap: 20px;">
+                <h1 class="title">Robot Status</h1>
+                <div style="background: #10b981; padding: 8px 16px; border-radius: 8px;">
+                    <div style="font-size: 12px;">Active Units</div>
+                    <div style="font-size: 24px; font-weight: bold;" id="percentage">80%</div>
+                </div>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn btn-green" onclick="showImportModal()">📊 Import from Spreadsheet</button>
+                <button class="btn" onclick="showAddModal()">+ Add Unit</button>
+            </div>
+        </div>
+
+        <div class="columns">
+            <div class="column" data-category="active">
+                <div class="column-header">
+                    <div class="column-title">Active-Implemented</div>
+                    <div style="font-size: 12px; color: #9ca3af;">(<span class="count">2</span>/10)</div>
+                </div>
+                <div class="units-container">
+                    <div class="unit-card green" draggable="true">
+                        <div>🇺🇸 <span class="unit-number">R001</span></div>
+                        <div style="font-size: 14px; margin-top: 4px;">📍 Earl Freeman Farms</div>
+                        <div style="font-size: 14px;">Config: G-200-4</div>
+                    </div>
+                    <div class="unit-card green" draggable="true">
+                        <div>🇪🇺 <span class="unit-number">S002</span></div>
+                        <div style="font-size: 14px; margin-top: 4px;">📍 Biolatina Cooperativa</div>
+                        <div style="font-size: 14px;">Config: G-300-4</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="column" data-category="inactive">
+                <div class="column-header">
+                    <div class="column-title">Inactive-Winterized</div>
+                    <div style="font-size: 12px; color: #9ca3af;">(<span class="count">1</span>/10)</div>
+                </div>
+                <div class="units-container">
+                    <div class="unit-card gray" draggable="true">
+                        <div>🇺🇸 <span class="unit-number">R003</span></div>
+                        <div style="font-size: 14px; margin-top: 4px;">📍 Agro Solutions Inc</div>
+                        <div style="font-size: 14px;">Config: G-400-8</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="column" data-category="implementation-phase">
+                <div class="column-header">
+                    <div class="column-title">Implementation Phase</div>
+                    <div style="font-size: 12px; color: #9ca3af;">(<span class="count">2</span>/10)</div>
+                </div>
+                <div class="units-container">
+                    <div class="unit-card red" draggable="true">
+                        <div>🇩🇰 <span class="unit-number">S004</span></div>
+                        <div style="font-size: 14px; margin-top: 4px;">📍 DanBots Agriculture</div>
+                        <div style="font-size: 14px;">Config: G-600-12</div>
+                    </div>
+                    <div class="unit-card red" draggable="true">
+                        <div>🇳🇴 <span class="unit-number">R005</span></div>
+                        <div style="font-size: 14px; margin-top: 4px;">📍 Koetsenburg Nordic</div>
+                        <div style="font-size: 14px;">Config: G-300-6</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="column" data-category="implementation-scheduled">
+                <div class="column-header">
+                    <div class="column-title">Implementation Scheduled</div>
+                    <div style="font-size: 12px; color: #9ca3af;">(<span class="count">0</span>/10)</div>
+                </div>
+                <div class="units-container"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Unit Modal -->
+    <div id="addModal" class="modal">
+        <div class="modal-content">
+            <h2 style="margin-bottom: 20px;">Add New Unit</h2>
+            <div class="form-group">
+                <label>Unit Type *</label>
+                <select id="unitType">
+                    <option value="">Select unit type</option>
+                    <option value="R">REAPER (R)</option>
+                    <option value="S">SLAYER (S)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Unit Number *</label>
+                <input type="text" id="unitNumber" placeholder="e.g., 001, 12, 5">
+            </div>
+            <div class="form-group">
+                <label>Farm Name</label>
+                <input type="text" id="farmName" placeholder="Enter farm name">
+            </div>
+            <div class="form-group">
+                <label>Configuration *</label>
+                <select id="config">
+                    <option value="">Select configuration</option>
+                    <option value="G-200-3">G-200-3</option>
+                    <option value="G-200T-4">G-200T-4</option>
+                    <option value="G-300-4">G-300-4</option>
+                    <option value="G-300-5">G-300-5</option>
+                    <option value="G-300-6">G-300-6</option>
+                    <option value="G-400-8">G-400-8</option>
+                    <option value="G-600-9">G-600-9</option>
+                    <option value="G-600-8">G-600-8</option>
+                    <option value="G-600-11">G-600-11</option>
+                    <option value="G-600-12">G-600-12</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Region</label>
+                <select id="region">
+                    <option value="">Select region</option>
+                    <option value="USA">USA 🇺🇸</option>
+                    <option value="EU">EU 🇪🇺</option>
+                    <option value="AUS/NZ">AUS/NZ 🇦🇺</option>
+                    <option value="JAPAN">JAPAN 🇯🇵</option>
+                    <option value="CANADA">CANADA 🇨🇦</option>
+                </select>
+            </div>
+            <div class="button-group">
+                <button class="btn" onclick="addUnit()">Add Unit</button>
+                <button class="btn" style="background: #6b7280;" onclick="closeModal('addModal')">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Import Modal -->
+    <div id="importModal" class="modal">
+        <div class="modal-content">
+            <h2 style="margin-bottom: 20px;">📊 Import from Spreadsheet</h2>
+            <div style="background: #1e40af; padding: 12px; border-radius: 6px; margin-bottom: 16px;">
+                <p style="font-size: 14px; margin-bottom: 8px;">📋 Format: CSM → Unit → Customer → Region</p>
+                <p style="font-size: 12px; color: #fbbf24;">⚠️ Paste data directly (no headers)</p>
+            </div>
+            <div class="form-group">
+                <label>Paste your data here:</label>
+                <textarea id="importData" rows="8" placeholder="Mark Zahnlecker	S2	Grimmway	North America"></textarea>
+            </div>
+            <div id="importPreview" style="margin: 16px 0;"></div>
+            <div class="button-group">
+                <button class="btn btn-green" onclick="importUnits()">Import</button>
+                <button class="btn" style="background: #6b7280;" onclick="closeModal('importModal')">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Drag and Drop functionality
+        let draggedElement = null;
+
+        document.querySelectorAll('.unit-card').forEach(card => {
+            card.addEventListener('dragstart', handleDragStart);
+            card.addEventListener('dragend', handleDragEnd);
+        });
+
+        document.querySelectorAll('.column').forEach(column => {
+            column.addEventListener('dragover', handleDragOver);
+            column.addEventListener('drop', handleDrop);
+        });
+
+        function handleDragStart(e) {
+            draggedElement = this;
+            this.style.opacity = '0.5';
+        }
+
+        function handleDragEnd(e) {
+            this.style.opacity = '';
+        }
+
+        function handleDragOver(e) {
+            if (e.preventDefault) {
+                e.preventDefault();
+            }
+            return false;
+        }
+
+        function handleDrop(e) {
+            if (e.stopPropagation) {
+                e.stopPropagation();
+            }
+            
+            if (draggedElement) {
+                const container = this.querySelector('.units-container');
+                container.appendChild(draggedElement);
+                updateCounts();
+                updateColorClass(draggedElement, this.dataset.category);
+            }
+            
+            return false;
+        }
+
+        function updateColorClass(card, category) {
+            card.classList.remove('green', 'gray', 'red', 'blue');
+            if (category === 'active') card.classList.add('green');
+            else if (category === 'inactive') card.classList.add('gray');
+            else if (category === 'implementation-phase') card.classList.add('red');
+            else card.style.background = '#3b82f6';
+        }
+
+        function updateCounts() {
+            document.querySelectorAll('.column').forEach(column => {
+                const count = column.querySelectorAll('.unit-card').length;
+                column.querySelector('.count').textContent = count;
+            });
+            
+            // Update percentage
+            const active = document.querySelectorAll('[data-category="active"] .unit-card').length;
+            const implPhase = document.querySelectorAll('[data-category="implementation-phase"] .unit-card').length;
+            const total = document.querySelectorAll('.unit-card').length;
+            const percentage = total > 0 ? Math.round(((active + implPhase) / total) * 100) : 0;
+            document.getElementById('percentage').textContent = percentage + '%';
+        }
+
+        function showAddModal() {
+            document.getElementById('addModal').classList.add('active');
+        }
+
+        function showImportModal() {
+            document.getElementById('importModal').classList.add('active');
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('active');
+        }
+
+        function addUnit() {
+            const unitType = document.getElementById('unitType').value;
+            const unitNumber = document.getElementById('unitNumber').value;
+            const farmName = document.getElementById('farmName').value;
+            const config = document.getElementById('config').value;
+            const region = document.getElementById('region').value;
+            
+            if (!unitType || !unitNumber || !config) {
+                alert('Please fill in required fields');
+                return;
+            }
+            
+            const flagMap = {
+                'USA': '🇺🇸',
+                'EU': '🇪🇺',
+                'AUS/NZ': '🇦🇺',
+                'JAPAN': '🇯🇵',
+                'CANADA': '🇨🇦'
+            };
+            
+            const card = document.createElement('div');
+            card.className = 'unit-card';
+            card.draggable = true;
+            card.innerHTML = `
+                <div>${flagMap[region] || '🏳️'} <span class="unit-number">${unitType}${unitNumber}</span></div>
+                <div style="font-size: 14px; margin-top: 4px;">📍 ${farmName || 'Unknown'}</div>
+                <div style="font-size: 14px;">Config: ${config}</div>
+            `;
+            
+            card.addEventListener('dragstart', handleDragStart);
+            card.addEventListener('dragend', handleDragEnd);
+            
+            document.querySelector('[data-category="implementation-scheduled"] .units-container').appendChild(card);
+            
+            closeModal('addModal');
+            updateCounts();
+            
+            // Clear form
+            document.getElementById('unitType').value = '';
+            document.getElementById('unitNumber').value = '';
+            document.getElementById('farmName').value = '';
+            document.getElementById('config').value = '';
+            document.getElementById('region').value = '';
+        }
+
+        function importUnits() {
+            const data = document.getElementById('importData').value;
+            if (!data.trim()) {
+                alert('Please paste data to import');
+                return;
+            }
+            
+            const lines = data.trim().split('\n');
+            let imported = 0;
+            
+            lines.forEach(line => {
+                const parts = line.split('\t');
+                if (parts.length >= 3) {
+                    const unit = parts[1];
+                    const customer = parts[2];
+                    
+                    if (unit && unit.match(/[RS]\d+/i)) {
+                        const card = document.createElement('div');
+                        card.className = 'unit-card';
+                        card.draggable = true;
+                        card.innerHTML = `
+                            <div>🏳️ <span class="unit-number">${unit.toUpperCase()}</span></div>
+                            <div style="font-size: 14px; margin-top: 4px;">📍 ${customer || 'Unknown'}</div>
+                            <div style="font-size: 14px;">Config: Pending</div>
+                        `;
+                        
+                        card.addEventListener('dragstart', handleDragStart);
+                        card.addEventListener('dragend', handleDragEnd);
+                        
+                        document.querySelector('[data-category="implementation-scheduled"] .units-container').appendChild(card);
+                        imported++;
+                    }
+                }
+            });
+            
+            if (imported > 0) {
+                alert(`Successfully imported ${imported} units`);
+                document.getElementById('importData').value = '';
+                closeModal('importModal');
+                updateCounts();
+            } else {
+                alert('No valid units found in the data');
+            }
+        }
+
+        // Initialize counts
+        updateCounts();
+    </script>
+</body>
+</html>
