@@ -452,7 +452,7 @@ function handleDoubleClick(unitCard) {
     const category = unitCard.dataset.category;
     
     // Find the unit data
-    const unit = units[category].find(u => u.id === unitId);
+   const unit = window.units[category].find(u => u.id === unitId);
     if (unit) {
         editingUnit = { unit, category };
         openEditModal(unit);
