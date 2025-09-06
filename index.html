@@ -447,29 +447,73 @@
         // Initialize counts
         updateCounts();
         // Add double-click edit functionality
+// Double-click edit functionality
 function handleDoubleClick(unitCard) {
+    console.log('Double clicked!');
+    
+    // Get data from HTML attributes
     const unitId = unitCard.dataset.unitId;
     const category = unitCard.dataset.category;
     
-    // Find the unit data
-  // Try different ways to access units
-const unitsData = window.units || units || {};
-const categoryUnits = unitsData[category] || [];
-const unit = categoryUnits.find(u => u.id === unitId);
-    if (unit) {
-        editingUnit = { unit, category };
-        openEditModal(unit);
-    }
+    // Extract company name from the card
+    const companyElement = unitCard.querySelector('.company-name');
+    const company = companyElement ? companyElement.textContent : '';
+    
+    // Set up edit mode
+    editingUnit = { id: unitId, category: category };
+    
+    // Open edit modal
+    document.getElementById('modal-title').textContent = 'Edit Unit';
+    document.getElementById('submit-btn').textContent = 'Save Changes';
+    document.getElementById('company').value = company;
+    document.getElementById('category').value = category;
+    document.getElementById('modal').style.display = 'flex';
 }
 
-// Update your existing renderGrid function to add double-click listeners
-// Add this after creating each unit card:
-card.addEventListener('dblclick', function(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    console.log('Double clicked!'); // Debug
-    handleDoubleClick(this);
-});
+// Double-click edit functionality
+function handleDoubleClick(unitCard) {
+    console.log('Double clicked!');
+    
+    // Get data from HTML attributes
+    const unitId = unitCard.dataset.unitId;
+    const category = unitCard.dataset.category;
+    
+    // Extract company name from the card
+    const companyElement = unitCard.querySelector('.company-name');
+    const company = companyElement ? companyElement.textContent : '';
+    
+    // Set up edit mode
+    editingUnit = { id: unitId, category: category };
+    
+    // Open edit modal
+    document.getElementById('modal-title').textContent = 'Edit Unit';
+    document.getElementById('submit-btn').textContent = 'Save Changes';
+    document.getElementById('company').value = company;
+    document.getElementById('category').value = category;
+    document.getElementById('modal').style.display = 'flex';
+}
+// Double-click edit functionality
+function handleDoubleClick(unitCard) {
+    console.log('Double clicked!');
+    
+    // Get data from HTML attributes
+    const unitId = unitCard.dataset.unitId;
+    const category = unitCard.dataset.category;
+    
+    // Extract company name from the card
+    const companyElement = unitCard.querySelector('.company-name');
+    const company = companyElement ? companyElement.textContent : '';
+    
+    // Set up edit mode
+    editingUnit = { id: unitId, category: category };
+    
+    // Open edit modal
+    document.getElementById('modal-title').textContent = 'Edit Unit';
+    document.getElementById('submit-btn').textContent = 'Save Changes';
+    document.getElementById('company').value = company;
+    document.getElementById('category').value = category;
+    document.getElementById('modal').style.display = 'flex';
+}
 
 // Add the edit modal function (same form as add, but pre-filled)
 function openEditModal(unit) {
