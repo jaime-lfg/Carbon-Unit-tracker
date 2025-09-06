@@ -43,7 +43,7 @@
         <h1 class="title">Robot Status</h1>
         <div style="background:#10b981; padding:8px 16px; border-radius:8px;">
           <div style="font-size:12px;">Active Units</div>
-          <div style="font-size:24px; font-weight:bold;" id="percentage">80%</div>
+          <div style="font-size:24px; font-weight:bold;" id="percentage">0%</div>
         </div>
       </div>
       <div style="display:flex; gap:10px;">
@@ -56,9 +56,10 @@
       <div class="column" data-category="active">
         <div class="column-header">
           <div class="column-title">Active-Implemented</div>
-          <div style="font-size:12px; color:#9ca3af;">(<span class="count">2</span>/10)</div>
+          <div style="font-size:12px; color:#9ca3af;">(<span class="count">0</span>/10)</div>
         </div>
         <div class="units-container">
+          <!-- Seed examples (used only on first load; after that we load from storage) -->
           <div class="unit-card green" draggable="true" data-unit-id="R001" data-company="Earl Freeman Farms" data-config="G-200-4" data-region="USA" data-category="active">
             <div>🇺🇸 <span class="unit-number">R001</span></div>
             <div class="company-name" style="font-size:14px; margin-top:4px;">📍 Earl Freeman Farms</div>
@@ -75,7 +76,7 @@
       <div class="column" data-category="inactive">
         <div class="column-header">
           <div class="column-title">Inactive-Winterized</div>
-          <div style="font-size:12px; color:#9ca3af;">(<span class="count">1</span>/10)</div>
+          <div style="font-size:12px; color:#9ca3af;">(<span class="count">0</span>/10)</div>
         </div>
         <div class="units-container">
           <div class="unit-card gray" draggable="true" data-unit-id="R003" data-company="Agro Solutions Inc" data-config="G-400-8" data-region="USA" data-category="inactive">
@@ -89,7 +90,7 @@
       <div class="column" data-category="implementation-phase">
         <div class="column-header">
           <div class="column-title">Implementation Phase</div>
-          <div style="font-size:12px; color:#9ca3af;">(<span class="count">2</span>/10)</div>
+          <div style="font-size:12px; color:#9ca3af;">(<span class="count">0</span>/10)</div>
         </div>
         <div class="units-container">
           <div class="unit-card red" draggable="true" data-unit-id="S004" data-company="DanBots Agriculture" data-config="G-600-12" data-region="EU" data-category="implementation-phase">
@@ -181,7 +182,6 @@
         <label>Paste your data here:</label>
         <textarea id="importData" rows="8" placeholder="Mark Zahnlecker	S2	Grimmway	North America"></textarea>
       </div>
-      <div id="importPreview" style="margin:16px 0;"></div>
       <div class="button-group">
         <button class="btn btn-green" onclick="importUnits()">Import</button>
         <button class="btn" style="background:#6b7280;" onclick="closeModal('importModal')">Cancel</button>
@@ -233,7 +233,88 @@
   </div>
 
   <script>
-    // ----------- Drag & Drop -----------
+    // =================== Persistence ===================
+    const STORAGE_KEY = 'cr-unit-tracker:v1';
+
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) return null;
+        return parsed;
+      } catch { return null; }
+    }
+
+    function saveState(units) {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(units));
+      } catch (e) {
+        console.error('Failed to save:', e);
+      }
+    }
+
+    function seedStateFromDOM() {
+      const cards = Array.from(document.querySelectorAll('.unit-card'));
+      return cards.map(card => ({
+        id: (card.dataset.unitId || card.querySelector('.unit-number')?.textContent || '').trim(),
+        company: (card.dataset.company || card.querySelector('.company-name')?.textContent?.replace('📍','') || 'Unknown').trim(),
+        config: (card.dataset.config || (() => {
+          const t = Array.from(card.querySelectorAll('div')).map(n => n.textContent||'').find(x => x.includes('Config:'));
+          return t ? t.split('Config:').pop().trim() : 'Pending';
+        })()),
+        region: card.dataset.region || '',
+        category: card.dataset.category || card.closest('.column')?.dataset.category || 'implementation-scheduled'
+      })).filter(u => u.id);
+    }
+
+    // =================== Rendering ===================
+    function countryFlag(region) {
+      const map = { 'USA':'🇺🇸','EU':'🇪🇺','AUS/NZ':'🇦🇺','JAPAN':'🇯🇵','CANADA':'🇨🇦' };
+      return map[region] || '🏳️';
+    }
+
+    function makeCard(item) {
+      const card = document.createElement('div');
+      card.className = 'unit-card';
+      card.draggable = true;
+      card.dataset.unitId = item.id;
+      card.dataset.company = item.company || 'Unknown';
+      card.dataset.config = item.config || 'Pending';
+      card.dataset.region = item.region || '';
+      card.dataset.category = item.category;
+
+      if (item.category === 'active') card.classList.add('green');
+      else if (item.category === 'inactive') card.classList.add('gray');
+      else if (item.category === 'implementation-phase') card.classList.add('red');
+
+      card.innerHTML = `
+        <div>${countryFlag(item.region)} <span class="unit-number">${item.id}</span></div>
+        <div class="company-name" style="font-size:14px; margin-top:4px;">📍 ${item.company || 'Unknown'}</div>
+        <div style="font-size:14px;">Config: ${item.config || 'Pending'}</div>
+      `;
+      attachDragHandlers(card);
+      return card;
+    }
+
+    function renderAll(units) {
+      // Clear all containers
+      document.querySelectorAll('.units-container').forEach(c => c.innerHTML = '');
+      // Append cards by category
+      const byCat = {
+        'active': document.querySelector('[data-category="active"] .units-container'),
+        'inactive': document.querySelector('[data-category="inactive"] .units-container'),
+        'implementation-phase': document.querySelector('[data-category="implementation-phase"] .units-container'),
+        'implementation-scheduled': document.querySelector('[data-category="implementation-scheduled"] .units-container'),
+      };
+      units.forEach(u => {
+        const cont = byCat[u.category] || byCat['implementation-scheduled'];
+        cont.appendChild(makeCard(u));
+      });
+      updateCounts(); // uses DOM
+    }
+
+    // =================== Drag & Drop ===================
     let draggedElement = null;
 
     function handleDragStart(e) {
@@ -251,13 +332,22 @@
     }
     function handleDrop(e) {
       if (e.stopPropagation) e.stopPropagation();
-
       if (draggedElement) {
         const container = this.querySelector('.units-container');
         container.appendChild(draggedElement);
-        // keep dataset/category + color in sync
-        draggedElement.dataset.category = this.dataset.category || '';
-        updateColorClass(draggedElement, draggedElement.dataset.category);
+
+        // persist category change
+        const newCat = this.dataset.category || 'implementation-scheduled';
+        const id = draggedElement.dataset.unitId;
+        const idx = state.findIndex(x => x.id === id);
+        if (idx >= 0) {
+          state[idx].category = newCat;
+          saveState(state);
+        }
+
+        // update color + counts
+        draggedElement.dataset.category = newCat;
+        updateColorClass(draggedElement, newCat);
         updateCounts();
       }
       return false;
@@ -268,7 +358,6 @@
       card.addEventListener('dragend', handleDragEnd);
     }
 
-    document.querySelectorAll('.unit-card').forEach(attachDragHandlers);
     document.querySelectorAll('.column').forEach(column => {
       column.addEventListener('dragover', handleDragOver);
       column.addEventListener('drop', handleDrop);
@@ -297,25 +386,7 @@
     function showImportModal(){ document.getElementById('importModal').classList.add('active'); }
     function closeModal(id){ document.getElementById(id).classList.remove('active'); }
 
-    // ----------- Add / Import -----------
-    function countryFlag(region) {
-      const map = { 'USA':'🇺🇸','EU':'🇪🇺','AUS/NZ':'🇦🇺','JAPAN':'🇯🇵','CANADA':'🇨🇦' };
-      return map[region] || '🏳️';
-    }
-
-    function renderCard(card) {
-      const id = card.dataset.unitId || '';
-      const company = card.dataset.company || 'Unknown';
-      const config = card.dataset.config || 'Pending';
-      const region = card.dataset.region || '';
-      card.innerHTML = `
-        <div>${countryFlag(region)} <span class="unit-number">${id}</span></div>
-        <div class="company-name" style="font-size:14px; margin-top:4px;">📍 ${company}</div>
-        <div style="font-size:14px;">Config: ${config}</div>
-      `;
-      attachDragHandlers(card);
-    }
-
+    // =================== Add / Import (persist) ===================
     function addUnit() {
       const unitType = document.getElementById('unitType').value;
       const unitNumber = document.getElementById('unitNumber').value.trim();
@@ -325,18 +396,14 @@
 
       if (!unitType || !unitNumber || !config) { alert('Please fill in required fields'); return; }
 
-      const card = document.createElement('div');
-      card.className = 'unit-card';
-      card.draggable = true;
-      card.dataset.unitId = `${unitType}${unitNumber}`;
-      card.dataset.company = farmName || 'Unknown';
-      card.dataset.config = config;
-      card.dataset.region = region || '';
-      card.dataset.category = 'implementation-scheduled';
+      const id = `${unitType}${unitNumber}`;
+      if (state.some(u => u.id === id)) { alert(`Unit ${id} already exists.`); return; }
 
-      renderCard(card);
-
-      document.querySelector('[data-category="implementation-scheduled"] .units-container').appendChild(card);
+      state.push({
+        id, company: farmName || 'Unknown', config, region: region || '', category: 'implementation-scheduled'
+      });
+      saveState(state);
+      renderAll(state);
       closeModal('addModal');
 
       // clear form
@@ -345,8 +412,6 @@
       document.getElementById('farmName').value = '';
       document.getElementById('config').value = '';
       document.getElementById('region').value = '';
-
-      updateCounts();
     }
 
     function importUnits() {
@@ -360,36 +425,27 @@
         if (parts.length >= 3) {
           const unit = (parts[1] || '').toUpperCase().trim();     // e.g., R12 or S002
           const customer = (parts[2] || '').trim();
-
-          if (/^[RS]\d+$/i.test(unit)) {
-            const card = document.createElement('div');
-            card.className = 'unit-card';
-            card.draggable = true;
-            card.dataset.unitId = unit;
-            card.dataset.company = customer || 'Unknown';
-            card.dataset.config = 'Pending';
-            card.dataset.region = '';
-            card.dataset.category = 'implementation-scheduled';
-
-            renderCard(card);
-
-            document.querySelector('[data-category="implementation-scheduled"] .units-container').appendChild(card);
+          if (/^[RS]\d+$/i.test(unit) && !state.some(u => u.id === unit)) {
+            state.push({
+              id: unit, company: customer || 'Unknown', config: 'Pending', region: '', category: 'implementation-scheduled'
+            });
             imported++;
           }
         }
       });
 
       if (imported > 0) {
-        alert(`Successfully imported ${imported} units`);
+        saveState(state);
+        renderAll(state);
         document.getElementById('importData').value = '';
         closeModal('importModal');
-        updateCounts();
+        alert(`Successfully imported ${imported} units`);
       } else {
-        alert('No valid units found in the data');
+        alert('No new valid units found in the data');
       }
     }
 
-    // ----------- Edit-on-Double-Click -----------
+    // =================== Edit Modal (dblclick) ===================
     let editingCard = null;
     const editModal = document.getElementById('editModal');
     const e_unitId = document.getElementById('e_unitId');
@@ -405,27 +461,14 @@
     function openEdit(card) {
       editingCard = card;
 
-      // Ensure datasets exist by inferring from DOM if needed
-      if (!card.dataset.unitId) {
-        card.dataset.unitId = (card.querySelector('.unit-number')?.textContent || '').trim();
-      }
-      if (!card.dataset.company) {
-        card.dataset.company =
-          (card.querySelector('.company-name')?.textContent || '')
-            .replace('📍','').trim()
-          || (card.querySelector(':scope > div:nth-child(2)')?.textContent || '').replace('📍','').trim();
-      }
-      if (!card.dataset.config) {
-        const confText = Array.from(card.querySelectorAll('div'))
-          .map(n => n.textContent || '')
-          .find(t => t.includes('Config:'));
-        card.dataset.config = confText ? confText.split('Config:').pop().trim() : '';
-      }
+      const id = card.dataset.unitId;
+      const item = state.find(u => u.id === id);
+      if (!item) return;
 
-      e_unitId.value = card.dataset.unitId || '';
-      e_company.value = card.dataset.company || '';
-      e_config.value = card.dataset.config || '';
-      e_region.value = card.dataset.region || '';
+      e_unitId.value = item.id;
+      e_company.value = item.company || '';
+      e_config.value = item.config || '';
+      e_region.value = item.region || '';
 
       editModal.classList.add('active');
     }
@@ -437,20 +480,16 @@
 
     function saveEdit() {
       if (!editingCard) return;
+      const id = editingCard.dataset.unitId;
+      const idx = state.findIndex(u => u.id === id);
+      if (idx < 0) return;
 
-      editingCard.dataset.company = e_company.value.trim();
-      editingCard.dataset.config  = e_config.value;
-      editingCard.dataset.region  = e_region.value;
+      state[idx].company = e_company.value.trim();
+      state[idx].config  = e_config.value;
+      state[idx].region  = e_region.value;
 
-      // Update visible DOM text
-      const companyEl = editingCard.querySelector('.company-name')
-        || editingCard.querySelector(':scope > div:nth-child(2)');
-      if (companyEl) companyEl.textContent = `📍 ${editingCard.dataset.company || 'Unknown'}`;
-
-      const configEl = Array.from(editingCard.querySelectorAll('div'))
-        .find(n => (n.textContent || '').includes('Config:'));
-      if (configEl) configEl.textContent = `Config: ${editingCard.dataset.config || 'Pending'}`;
-
+      saveState(state);
+      renderAll(state);
       closeEdit();
     }
 
@@ -459,12 +498,16 @@
       const id = editingCard.dataset.unitId || 'this unit';
       if (!confirm(`Delete ${id}? This cannot be undone.`)) return;
 
-      editingCard.remove();
-      updateCounts();
+      const idx = state.findIndex(u => u.id === id);
+      if (idx >= 0) {
+        state.splice(idx, 1);
+        saveState(state);
+        renderAll(state);
+      }
       closeEdit();
     }
 
-    // Event delegation so it works for existing + newly added/imported cards
+    // Open edit on double-click (works for all cards via delegation)
     document.addEventListener('dblclick', (e) => {
       const card = e.target.closest('.unit-card');
       if (!card) return;
@@ -474,8 +517,13 @@
       openEdit(card);
     });
 
-    // Init counts on load
-    updateCounts();
+    // =================== Boot ===================
+    let state = loadState();
+    if (!state) {
+      state = seedStateFromDOM();
+      saveState(state);
+    }
+    renderAll(state);
   </script>
 </body>
 </html>
