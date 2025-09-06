@@ -189,7 +189,7 @@
     </div>
   </div>
 
-  <!-- Edit Modal (opens on double-click) -->
+  <!-- Edit Modal (dbl-click opens this) -->
   <div id="editModal" class="modal">
     <div class="modal-content">
       <h2 style="margin-bottom:16px;">Edit Unit</h2>
@@ -226,6 +226,7 @@
 
       <div class="button-group">
         <button id="e_save" class="btn btn-green">Save</button>
+        <button id="e_delete" class="btn" style="background:#ef4444;">Delete</button>
         <button id="e_cancel" class="btn" style="background:#6b7280;">Cancel</button>
       </div>
     </div>
@@ -395,9 +396,11 @@
     const e_company = document.getElementById('e_company');
     const e_config  = document.getElementById('e_config');
     const e_region  = document.getElementById('e_region');
+    const e_delete  = document.getElementById('e_delete');
 
     document.getElementById('e_cancel').onclick = () => closeEdit();
     document.getElementById('e_save').onclick   = () => saveEdit();
+    e_delete.onclick = () => deleteCard();
 
     function openEdit(card) {
       editingCard = card;
@@ -448,6 +451,16 @@
         .find(n => (n.textContent || '').includes('Config:'));
       if (configEl) configEl.textContent = `Config: ${editingCard.dataset.config || 'Pending'}`;
 
+      closeEdit();
+    }
+
+    function deleteCard() {
+      if (!editingCard) return;
+      const id = editingCard.dataset.unitId || 'this unit';
+      if (!confirm(`Delete ${id}? This cannot be undone.`)) return;
+
+      editingCard.remove();
+      updateCounts();
       closeEdit();
     }
 
