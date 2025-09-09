@@ -33,6 +33,7 @@
     }
     .button-group { display:flex; gap:12px; margin-top:20px; }
     .button-group button { flex:1; }
+    .csm-line { font-size:12px; margin-top:4px; opacity:0.9; }
     @media (max-width:768px){ .columns{ grid-template-columns: 1fr; } }
   </style>
 </head>
@@ -174,7 +175,7 @@
   <div id="importModal" class="modal">
     <div class="modal-content">
       <h2 style="margin-bottom:20px;">📊 Import from Spreadsheet</h2>
-      <div style="background:#1e40af; padding:12px; border-radius:6px; margin-bottom:16px;">
+    <div style="background:#1e40af; padding:12px; border-radius:6px; margin-bottom:16px;">
         <p style="font-size:14px; margin-bottom:8px;">📋 Format: CSM → Unit → Customer → Region</p>
         <p style="font-size:12px; color:#fbbf24;">⚠️ Paste data directly (no headers)</p>
       </div>
@@ -224,6 +225,34 @@
         </select>
       </div>
 
+      <!-- NEW: CSM Dropdown -->
+      <div class="form-group">
+        <label>CSM</label>
+        <select id="e_csm">
+          <option value="">Unassigned</option>
+          <option>Steven Sacco</option>
+          <option>Fabien Dumestre</option>
+          <option>Gabriel Faure</option>
+          <option>Borja Arregui</option>
+          <option>Maximilian Urtz</option>
+          <option>Liam Hollis (</option>
+          <option>Mark Zahnlecker</option>
+          <option>Sean Iliff</option>
+          <option>Travis Palmer</option>
+          <option>Brandon Alvarez</option>
+          <option>Leander Fourie</option>
+          <option>Joel Thompson</option>
+          <option>Tomas Vergara</option>
+          <option>Borja Arregui</option>
+          <option>Gabriel Muller</option>
+          <option>Daniel Flach</option>
+          <option>Jonathan Salzer</option>
+          <option>Jakob Aarup Pedersen</option>
+          <option>Luke Parsons</option>
+          <option>Twan van Breukelen</option>
+        </select>
+      </div>
+
       <div class="button-group">
         <button id="e_save" class="btn btn-green">Save</button>
         <button id="e_delete" class="btn" style="background:#ef4444;">Delete</button>
@@ -264,7 +293,8 @@
           return t ? t.split('Config:').pop().trim() : 'Pending';
         })()),
         region: card.dataset.region || '',
-        category: card.dataset.category || card.closest('.column')?.dataset.category || 'implementation-scheduled'
+        category: card.dataset.category || card.closest('.column')?.dataset.category || 'implementation-scheduled',
+        csm: card.dataset.csm || '' // NEW
       })).filter(u => u.id);
     }
 
@@ -283,24 +313,26 @@
       card.dataset.config = item.config || 'Pending';
       card.dataset.region = item.region || '';
       card.dataset.category = item.category;
+      card.dataset.csm = item.csm || '';
 
       if (item.category === 'active') card.classList.add('green');
       else if (item.category === 'inactive') card.classList.add('gray');
       else if (item.category === 'implementation-phase') card.classList.add('red');
 
+      const csmText = item.csm && item.csm.trim() ? item.csm : 'Unassigned';
+
       card.innerHTML = `
         <div>${countryFlag(item.region)} <span class="unit-number">${item.id}</span></div>
         <div class="company-name" style="font-size:14px; margin-top:4px;">📍 ${item.company || 'Unknown'}</div>
         <div style="font-size:14px;">Config: ${item.config || 'Pending'}</div>
+        <div class="csm-line">CSM: ${csmText}</div>
       `;
       attachDragHandlers(card);
       return card;
     }
 
     function renderAll(units) {
-      // Clear all containers
       document.querySelectorAll('.units-container').forEach(c => c.innerHTML = '');
-      // Append cards by category
       const byCat = {
         'active': document.querySelector('[data-category="active"] .units-container'),
         'inactive': document.querySelector('[data-category="inactive"] .units-container'),
@@ -311,7 +343,7 @@
         const cont = byCat[u.category] || byCat['implementation-scheduled'];
         cont.appendChild(makeCard(u));
       });
-      updateCounts(); // uses DOM
+      updateCounts();
     }
 
     // =================== Drag & Drop ===================
@@ -336,7 +368,6 @@
         const container = this.querySelector('.units-container');
         container.appendChild(draggedElement);
 
-        // persist category change
         const newCat = this.dataset.category || 'implementation-scheduled';
         const id = draggedElement.dataset.unitId;
         const idx = state.findIndex(x => x.id === id);
@@ -345,7 +376,6 @@
           saveState(state);
         }
 
-        // update color + counts
         draggedElement.dataset.category = newCat;
         updateColorClass(draggedElement, newCat);
         updateCounts();
@@ -400,13 +430,12 @@
       if (state.some(u => u.id === id)) { alert(`Unit ${id} already exists.`); return; }
 
       state.push({
-        id, company: farmName || 'Unknown', config, region: region || '', category: 'implementation-scheduled'
+        id, company: farmName || 'Unknown', config, region: region || '', category: 'implementation-scheduled', csm: ''
       });
       saveState(state);
       renderAll(state);
       closeModal('addModal');
 
-      // clear form
       document.getElementById('unitType').value = '';
       document.getElementById('unitNumber').value = '';
       document.getElementById('farmName').value = '';
@@ -423,11 +452,11 @@
       lines.forEach(line => {
         const parts = line.split('\t');
         if (parts.length >= 3) {
-          const unit = (parts[1] || '').toUpperCase().trim();     // e.g., R12 or S002
+          const unit = (parts[1] || '').toUpperCase().trim();
           const customer = (parts[2] || '').trim();
           if (/^[RS]\d+$/i.test(unit) && !state.some(u => u.id === unit)) {
             state.push({
-              id: unit, company: customer || 'Unknown', config: 'Pending', region: '', category: 'implementation-scheduled'
+              id: unit, company: customer || 'Unknown', config: 'Pending', region: '', category: 'implementation-scheduled', csm: ''
             });
             imported++;
           }
@@ -452,6 +481,7 @@
     const e_company = document.getElementById('e_company');
     const e_config  = document.getElementById('e_config');
     const e_region  = document.getElementById('e_region');
+    const e_csm     = document.getElementById('e_csm');
     const e_delete  = document.getElementById('e_delete');
 
     document.getElementById('e_cancel').onclick = () => closeEdit();
@@ -469,6 +499,7 @@
       e_company.value = item.company || '';
       e_config.value = item.config || '';
       e_region.value = item.region || '';
+      e_csm.value = item.csm || '';
 
       editModal.classList.add('active');
     }
@@ -487,6 +518,7 @@
       state[idx].company = e_company.value.trim();
       state[idx].config  = e_config.value;
       state[idx].region  = e_region.value;
+      state[idx].csm     = e_csm.value; // NEW
 
       saveState(state);
       renderAll(state);
