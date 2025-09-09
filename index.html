@@ -249,6 +249,10 @@
         </select>
       </div>
       <div class="form-group">
+        <label>Implementation Date</label>
+        <input id="implDate" type="date">
+      </div>
+      <div class="form-group">
         <label>CSM</label>
         <select id="csm"></select>
       </div>
@@ -305,6 +309,10 @@
         </select>
       </div>
       <div class="form-group">
+        <label>Implementation Date</label>
+        <input id="e_implDate" type="date">
+      </div>
+      <div class="form-group">
         <label>CSM</label>
         <div style="display:flex; gap:8px;">
           <select id="e_csm" style="flex:1"></select>
@@ -321,11 +329,11 @@
   </div>
 
   <script>
-    // =================== Persistence keys ===================
+    /* =================== Persistence keys =================== */
     const STORAGE_KEY  = 'cr-unit-tracker:v1';
     const STORAGE_CSMS = 'cr-unit-tracker:csms:v1';
 
-    // =================== Defaults ===================
+    /* =================== Defaults =================== */
     const DEFAULT_CSMS = [
       "Steven Sacco","Fabien Dumestre","Gabriel Faure","Borja Arregui","Maximilian Urtz",
       "Liam Hollis","Mark Zahnlecker","Sean Iliff","Travis Palmer","Brandon Alvarez",
@@ -333,17 +341,12 @@
       "Jonathan Salzer","Jakob Aarup Pedersen","Luke Parsons","Twan van Breukelen"
     ];
 
-    // =================== Helpers ===================
+    /* =================== Helpers =================== */
     const $ = (s)=>document.querySelector(s);
     const $$ = (s)=>Array.from(document.querySelectorAll(s));
 
-    function loadJSON(key, fallback) {
-      try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; }
-      catch { return fallback; }
-    }
-    function saveJSON(key, val) {
-      try { localStorage.setItem(key, JSON.stringify(val)); } catch(e) { console.error(e); }
-    }
+    function loadJSON(key, fallback) { try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; } catch { return fallback; } }
+    function saveJSON(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch(e) { console.error(e); } }
     function uniquePush(arr, value) {
       const v = (value||'').trim(); if (!v) return arr.slice();
       return arr.some(x => x.toLowerCase() === v.toLowerCase()) ? arr.slice() : [...arr, v];
@@ -369,7 +372,19 @@
       return (first + last).toUpperCase();
     }
 
-    // =================== State ===================
+    // Compute category based on implementation date:
+    // future -> scheduled; past < 14d -> phase; past >= 14d -> active
+    function computeCategoryFromImplDate(dateStr) {
+      if (!dateStr) return 'implementation-scheduled';
+      const impl = new Date(`${dateStr}T00:00:00`);
+      const now  = new Date();
+      if (isNaN(impl.getTime())) return 'implementation-scheduled';
+      if (impl > now) return 'implementation-scheduled';
+      const days = Math.floor((now - impl) / 86400000);
+      return (days < 14) ? 'implementation-phase' : 'active';
+    }
+
+    /* =================== State =================== */
     let state = loadJSON(STORAGE_KEY, null);
     let csms  = loadJSON(STORAGE_CSMS, null) || DEFAULT_CSMS.slice();
 
@@ -381,7 +396,8 @@
         config: (card.dataset.config || 'Pending'),
         region: card.dataset.region || '',
         category: card.dataset.category || card.closest('.column')?.dataset.category || 'implementation-scheduled',
-        csm: card.dataset.csm || ''
+        csm: card.dataset.csm || '',
+        implDate: card.dataset.implDate || ''
       })).filter(u => u.id);
       saveJSON(STORAGE_KEY, state);
     }
@@ -389,7 +405,7 @@
     Array.from(new Set(state.map(u => (u.csm||'').trim()).filter(Boolean))).forEach(n => csms = uniquePush(csms, n));
     saveJSON(STORAGE_CSMS, csms);
 
-    // =================== Filters ===================
+    /* =================== Filters =================== */
     const searchInput  = $('#searchInput');
     const filterCsm    = $('#filterCsm');
     const filterStatus = $('#filterStatus');
@@ -402,14 +418,13 @@
       optAll.textContent = 'All CSMs';
       filterCsm.appendChild(optAll);
       csms.forEach(n => {
-        const o = document.createElement('option');
-        o.value = n; o.textContent = n;
+        const o = document.createElement('option'); o.value = n; o.textContent = n;
         filterCsm.appendChild(o);
       });
       if ([...filterCsm.options].some(o=>o.value===prev)) filterCsm.value = prev;
     }
 
-    // =================== Rendering ===================
+    /* =================== Rendering =================== */
     function makeCard(item) {
       const card = document.createElement('div');
       card.className = 'unit-card';
@@ -420,6 +435,7 @@
       card.dataset.region = item.region || '';
       card.dataset.category = item.category;
       card.dataset.csm = item.csm || '';
+      card.dataset.implDate = item.implDate || '';
 
       if (item.category === 'active') card.classList.add('green');
       else if (item.category === 'inactive') card.classList.add('gray');
@@ -427,6 +443,7 @@
 
       const st = statusMeta(item.category);
       const csmText = (item.csm && item.csm.trim()) ? item.csm : 'Unassigned';
+      const implText = (item.implDate && item.implDate.trim()) ? `<div class="muted">Impl: ${item.implDate}</div>` : ``;
 
       card.innerHTML = `
         <div class="unit-head">
@@ -436,6 +453,7 @@
         <div class="unit-body">
           <div class="company-name">📍 ${item.company || 'Unknown'}</div>
           <div class="muted">Config: ${item.config || 'Pending'}</div>
+          ${implText}
           <div class="csm-row"><div class="avatar">${initials(csmText === 'Unassigned' ? 'Unassigned' : csmText)}</div><div class="muted">CSM: ${csmText}</div></div>
         </div>
       `;
@@ -444,7 +462,6 @@
     }
 
     function renderAll(units) {
-      // Clear
       $$('.units-container').forEach(c => c.innerHTML = '');
       const targets = {
         'active': $('[data-category="active"] .units-container'),
@@ -457,12 +474,10 @@
     }
 
     function updateCounts() {
-      // Count visible cards per column
       $$('.column').forEach(column => {
         const count = column.querySelectorAll('.unit-card').length;
         column.querySelector('.count').textContent = count;
       });
-      // Percentage (active + phase) of all visible
       const active = document.querySelectorAll('[data-category="active"] .unit-card').length;
       const implPhase = document.querySelectorAll('[data-category="implementation-phase"] .unit-card').length;
       const total = document.querySelectorAll('.unit-card').length;
@@ -470,7 +485,18 @@
       document.getElementById('percentage').textContent = percentage + '%';
     }
 
-    // =================== Filtering logic ===================
+    /* =================== Auto-transition =================== */
+    function autoTransitionByDate() {
+      let changed = false;
+      state.forEach(u => {
+        if (u.implDate) {
+          const cat = computeCategoryFromImplDate(u.implDate);
+          if (cat !== u.category) { u.category = cat; changed = true; }
+        }
+      });
+      if (changed) saveJSON(STORAGE_KEY, state);
+    }
+
     function getFiltered() {
       const q = (searchInput.value || '').trim().toLowerCase();
       const csmVal = filterCsm.value || '';
@@ -479,30 +505,18 @@
       return state.filter(u => {
         if (statusVal && u.category !== statusVal) return false;
         if (csmVal && (u.csm || '') !== csmVal) return false;
-
         if (!q) return true;
-        const hay = [
-          u.id,
-          u.company || '',
-          u.csm || ''
-        ].join(' ').toLowerCase();
+        const hay = [u.id, u.company||'', u.csm||'', u.implDate||''].join(' ').toLowerCase();
         return hay.includes(q);
       });
     }
+    function applyFiltersAndRender() { renderAll(getFiltered()); }
 
-    function applyFiltersAndRender() {
-      renderAll(getFiltered());
-    }
-
-    // =================== Drag & Drop ===================
+    /* =================== Drag & Drop =================== */
     let draggedElement = null;
     function handleDragStart(){ draggedElement = this; this.classList.add('dragging'); }
     function handleDragEnd(){ this.classList.remove('dragging'); }
-
-    function attachDragHandlers(card) {
-      card.addEventListener('dragstart', handleDragStart);
-      card.addEventListener('dragend', handleDragEnd);
-    }
+    function attachDragHandlers(card) { card.addEventListener('dragstart', handleDragStart); card.addEventListener('dragend', handleDragEnd); }
 
     $$('.column').forEach(column => {
       column.addEventListener('dragover', e => e.preventDefault());
@@ -520,38 +534,38 @@
       });
     });
 
-    // =================== CSM dropdowns ===================
+    /* =================== CSM dropdowns =================== */
     function populateSelect(selectEl, list, includeUnassigned=true, allLabel) {
       const prev = selectEl.value;
       selectEl.innerHTML = '';
       if (allLabel) {
-        const optAll = document.createElement('option');
-        optAll.value = '';
-        optAll.textContent = allLabel;
-        selectEl.appendChild(optAll);
+        const optAll = document.createElement('option'); optAll.value = ''; optAll.textContent = allLabel; selectEl.appendChild(optAll);
       } else if (includeUnassigned) {
-        const opt0 = document.createElement('option');
-        opt0.value = '';
-        opt0.textContent = 'Unassigned';
-        selectEl.appendChild(opt0);
+        const opt0 = document.createElement('option'); opt0.value=''; opt0.textContent='Unassigned'; selectEl.appendChild(opt0);
       }
       list.forEach(name => {
-        const o = document.createElement('option');
-        o.value = name; o.textContent = name;
-        selectEl.appendChild(o);
+        const o = document.createElement('option'); o.value = name; o.textContent = name; selectEl.appendChild(o);
       });
       if ([...selectEl.options].some(o=>o.value===prev)) selectEl.value = prev;
     }
+    populateSelect($('#csm'), csms);
+    populateSelect($('#e_csm'), csms);
+    function populateCsmFilter(){ /* redefined earlier */ }
+    // override with working one
+    (function() {
+      const prev = $('#filterCsm').value;
+      const el = $('#filterCsm'); el.innerHTML='';
+      const optAll = document.createElement('option'); optAll.value=''; optAll.textContent='All CSMs'; el.appendChild(optAll);
+      csms.forEach(n=>{ const o=document.createElement('option'); o.value=n; o.textContent=n; el.appendChild(o); });
+      if ([...el.options].some(o=>o.value===prev)) el.value=prev;
+    })();
 
-    populateSelect($('#csm'), csms);                 // Add modal
-    populateSelect($('#e_csm'), csms);               // Edit modal
-    populateCsmFilter();                             // Toolbar filter
-
-    // =================== Add / Import ===================
+    /* =================== Modals =================== */
     function showAddModal(){ $('#addModal').classList.add('active'); }
     function showImportModal(){ $('#importModal').classList.add('active'); }
     function closeModal(id){ document.getElementById(id).classList.remove('active'); }
 
+    /* =================== Add / Import =================== */
     function addUnit() {
       const unitType = $('#unitType').value;
       const unitNumber = $('#unitNumber').value.trim();
@@ -559,29 +573,43 @@
       const config = $('#config').value;
       const region = $('#region').value;
       const csmSel = $('#csm').value;
+      const implDate = $('#implDate').value; // "" or YYYY-MM-DD
 
       if (!unitType || !unitNumber || !config) { alert('Please fill in required fields'); return; }
 
       const id = `${unitType}${unitNumber}`;
       if (state.some(u => u.id === id)) { alert(`Unit ${id} already exists.`); return; }
 
-      state.push({ id, company: company || 'Unknown', config, region: region || '', category: 'implementation-scheduled', csm: csmSel || '' });
-      saveJSON(STORAGE_KEY, state);
-      applyFiltersAndRender();
-      closeModal('addModal');
+      const computedCategory = computeCategoryFromImplDate(implDate);
 
+      state.push({
+        id,
+        company: company || 'Unknown',
+        config,
+        region: region || '',
+        category: computedCategory,
+        csm: csmSel || '',
+        implDate: implDate || ''
+      });
+      saveJSON(STORAGE_KEY, state);
+
+      // Clear form
       $('#unitType').value = '';
       $('#unitNumber').value = '';
       $('#farmName').value = '';
       $('#config').value = '';
       $('#region').value = '';
       $('#csm').value = '';
+      $('#implDate').value = '';
+
+      autoTransitionByDate();
+      applyFiltersAndRender();
+      closeModal('addModal');
     }
 
     function importUnits() {
       const data = $('#importData').value;
       if (!data.trim()) { alert('Please paste data to import'); return; }
-
       const lines = data.trim().split('\n');
       let imported = 0;
       lines.forEach(line => {
@@ -590,7 +618,7 @@
           const unit = (parts[1] || '').toUpperCase().trim();
           const customer = (parts[2] || '').trim();
           if (/^[RS]\d+$/i.test(unit) && !state.some(u => u.id === unit)) {
-            state.push({ id: unit, company: customer || 'Unknown', config: 'Pending', region: '', category: 'implementation-scheduled', csm: '' });
+            state.push({ id: unit, company: customer || 'Unknown', config: 'Pending', region: '', category: 'implementation-scheduled', csm: '', implDate: '' });
             imported++;
           }
         }
@@ -598,21 +626,23 @@
       if (imported > 0) {
         saveJSON(STORAGE_KEY, state);
         $('#importData').value = '';
-        closeModal('importModal');
+        autoTransitionByDate();
         applyFiltersAndRender();
+        closeModal('importModal');
         alert(`Imported ${imported} unit(s).`);
       } else { alert('No new valid units found.'); }
     }
 
-    // =================== Edit / Delete ===================
+    /* =================== Edit / Delete =================== */
     let editingCard = null;
     const editModal = $('#editModal');
-    const e_unitId = $('#e_unitId');
-    const e_company = $('#e_company');
-    const e_config  = $('#e_config');
-    const e_region  = $('#e_region');
-    const e_csm     = $('#e_csm');
-    const e_csm_add = $('#e_csm_add');
+    const e_unitId   = $('#e_unitId');
+    const e_company  = $('#e_company');
+    const e_config   = $('#e_config');
+    const e_region   = $('#e_region');
+    const e_implDate = $('#e_implDate');
+    const e_csm      = $('#e_csm');
+    const e_csm_add  = $('#e_csm_add');
 
     $('#e_cancel').onclick = ()=> closeEdit();
     $('#e_save').onclick   = ()=> saveEdit();
@@ -625,9 +655,12 @@
       saveJSON(STORAGE_CSMS, csms);
       populateSelect($('#csm'), csms);
       populateSelect($('#e_csm'), csms);
-      populateCsmFilter();
+      // refresh filter
+      const el = $('#filterCsm'); el.innerHTML='';
+      const optAll = document.createElement('option'); optAll.value=''; optAll.textContent='All CSMs'; el.appendChild(optAll);
+      csms.forEach(n=>{ const o=document.createElement('option'); o.value=n; o.textContent=n; el.appendChild(o); });
       e_csm.value = cleaned;
-      applyFiltersAndRender(); // tiles may show avatar initials for new name
+      applyFiltersAndRender();
     };
 
     function openEdit(card) {
@@ -636,20 +669,23 @@
       const item = state.find(u => u.id === id);
       if (!item) return;
 
-      // Ensure dropdown contains any existing value
+      // ensure dropdown contains any existing value
       if (item.csm && !csms.some(n => n.toLowerCase() === item.csm.toLowerCase())) {
         csms = uniquePush(csms, item.csm);
         saveJSON(STORAGE_CSMS, csms);
         populateSelect($('#csm'), csms);
         populateSelect($('#e_csm'), csms);
-        populateCsmFilter();
+        const el = $('#filterCsm'); el.innerHTML='';
+        const optAll = document.createElement('option'); optAll.value=''; optAll.textContent='All CSMs'; el.appendChild(optAll);
+        csms.forEach(n=>{ const o=document.createElement('option'); o.value=n; o.textContent=n; el.appendChild(o); });
       }
 
-      e_unitId.value = item.id;
-      e_company.value = item.company || '';
-      e_config.value = item.config || '';
-      e_region.value = item.region || '';
-      e_csm.value = item.csm || '';
+      e_unitId.value   = item.id;
+      e_company.value  = item.company || '';
+      e_config.value   = item.config || '';
+      e_region.value   = item.region || '';
+      e_implDate.value = item.implDate || '';
+      e_csm.value      = item.csm || '';
 
       editModal.classList.add('active');
     }
@@ -662,12 +698,17 @@
       const idx = state.findIndex(u => u.id === id);
       if (idx < 0) return;
 
-      state[idx].company = e_company.value.trim();
-      state[idx].config  = e_config.value;
-      state[idx].region  = e_region.value;
-      state[idx].csm     = e_csm.value;
+      state[idx].company  = e_company.value.trim();
+      state[idx].config   = e_config.value;
+      state[idx].region   = e_region.value;
+      state[idx].implDate = e_implDate.value || '';
+      state[idx].csm      = e_csm.value;
+
+      // recompute category from date
+      state[idx].category = computeCategoryFromImplDate(state[idx].implDate);
 
       saveJSON(STORAGE_KEY, state);
+      autoTransitionByDate();
       applyFiltersAndRender();
       closeEdit();
     }
@@ -676,7 +717,6 @@
       if (!editingCard) return;
       const id = editingCard.dataset.unitId || 'this unit';
       if (!confirm(`Delete ${id}? This cannot be undone.`)) return;
-
       const idx = state.findIndex(u => u.id === id);
       if (idx >= 0) {
         state.splice(idx, 1);
@@ -695,7 +735,7 @@
       openEdit(card);
     });
 
-    // =================== Toolbar events ===================
+    /* =================== Toolbar events =================== */
     searchInput.addEventListener('input', applyFiltersAndRender);
     filterCsm.addEventListener('change', applyFiltersAndRender);
     filterStatus.addEventListener('change', applyFiltersAndRender);
@@ -706,13 +746,18 @@
       applyFiltersAndRender();
     });
 
-    // =================== Boot ===================
-    // Populate CSM selects with Unassigned option
+    /* =================== Boot =================== */
+    // Populate selects/filters
     populateSelect($('#csm'), csms);
     populateSelect($('#e_csm'), csms);
-    populateCsmFilter();
+    (function() {
+      const el = $('#filterCsm'); el.innerHTML='';
+      const optAll = document.createElement('option'); optAll.value=''; optAll.textContent='All CSMs'; el.appendChild(optAll);
+      csms.forEach(n=>{ const o=document.createElement('option'); o.value=n; o.textContent=n; el.appendChild(o); });
+    })();
 
-    // Initial render (filtered view of full state)
+    // Auto transition once at load and render
+    autoTransitionByDate();
     applyFiltersAndRender();
 
     // Expose functions used by buttons
