@@ -25,7 +25,7 @@
     .unit-number { font-size:20px; font-weight:bold; }
     .modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); align-items:center; justify-content:center; }
     .modal.active { display:flex; }
-    .modal-content { background:#374151; padding:24px; border-radius:8px; width:90%; max-width:500px; max-height:80vh; overflow-y:auto; }
+    .modal-content { background:#374151; padding:24px; border-radius:8px; width:90%; max-width:520px; max-height:80vh; overflow-y:auto; }
     .form-group { margin-bottom:16px; }
     .form-group label { display:block; margin-bottom:4px; font-size:14px; }
     .form-group input, .form-group select, .form-group textarea {
@@ -34,6 +34,9 @@
     .button-group { display:flex; gap:12px; margin-top:20px; }
     .button-group button { flex:1; }
     .csm-line { font-size:12px; margin-top:4px; opacity:0.9; }
+    .csm-row { display:flex; gap:8px; }
+    .btn-secondary { background:#4b5563; }
+    .btn-secondary:hover { background:#6b7280; }
     @media (max-width:768px){ .columns{ grid-template-columns: 1fr; } }
   </style>
 </head>
@@ -60,7 +63,7 @@
           <div style="font-size:12px; color:#9ca3af;">(<span class="count">0</span>/10)</div>
         </div>
         <div class="units-container">
-          <!-- Seed examples (used only on first load; after that we load from storage) -->
+          <!-- Seed examples (first run only; after that state loads from storage) -->
           <div class="unit-card green" draggable="true" data-unit-id="R001" data-company="Earl Freeman Farms" data-config="G-200-4" data-region="USA" data-category="active">
             <div>🇺🇸 <span class="unit-number">R001</span></div>
             <div class="company-name" style="font-size:14px; margin-top:4px;">📍 Earl Freeman Farms</div>
@@ -164,6 +167,16 @@
           <option value="CANADA">CANADA 🇨🇦</option>
         </select>
       </div>
+
+      <!-- NEW: CSM in Add Unit -->
+      <div class="form-group">
+        <label>CSM</label>
+        <div class="csm-row">
+          <select id="csm"></select>
+          <!-- (Optional) Keep add-new limited to Edit modal as requested -->
+        </div>
+      </div>
+
       <div class="button-group">
         <button class="btn btn-green" onclick="addUnit()">Add Unit</button>
         <button class="btn" style="background:#6b7280;" onclick="closeModal('addModal')">Cancel</button>
@@ -175,7 +188,7 @@
   <div id="importModal" class="modal">
     <div class="modal-content">
       <h2 style="margin-bottom:20px;">📊 Import from Spreadsheet</h2>
-    <div style="background:#1e40af; padding:12px; border-radius:6px; margin-bottom:16px;">
+      <div style="background:#1e40af; padding:12px; border-radius:6px; margin-bottom:16px;">
         <p style="font-size:14px; margin-bottom:8px;">📋 Format: CSM → Unit → Customer → Region</p>
         <p style="font-size:12px; color:#fbbf24;">⚠️ Paste data directly (no headers)</p>
       </div>
@@ -225,32 +238,13 @@
         </select>
       </div>
 
-      <!-- NEW: CSM Dropdown -->
+      <!-- NEW: CSM in Edit + Add-new button -->
       <div class="form-group">
         <label>CSM</label>
-        <select id="e_csm">
-          <option value="">Unassigned</option>
-          <option>Steven Sacco</option>
-          <option>Fabien Dumestre</option>
-          <option>Gabriel Faure</option>
-          <option>Borja Arregui</option>
-          <option>Maximilian Urtz</option>
-          <option>Liam Hollis (</option>
-          <option>Mark Zahnlecker</option>
-          <option>Sean Iliff</option>
-          <option>Travis Palmer</option>
-          <option>Brandon Alvarez</option>
-          <option>Leander Fourie</option>
-          <option>Joel Thompson</option>
-          <option>Tomas Vergara</option>
-          <option>Borja Arregui</option>
-          <option>Gabriel Muller</option>
-          <option>Daniel Flach</option>
-          <option>Jonathan Salzer</option>
-          <option>Jakob Aarup Pedersen</option>
-          <option>Luke Parsons</option>
-          <option>Twan van Breukelen</option>
-        </select>
+        <div class="csm-row">
+          <select id="e_csm"></select>
+          <button id="e_csm_add" type="button" class="btn btn-secondary">+ Add CSM</button>
+        </div>
       </div>
 
       <div class="button-group">
@@ -263,7 +257,30 @@
 
   <script>
     // =================== Persistence ===================
-    const STORAGE_KEY = 'cr-unit-tracker:v1';
+    const STORAGE_KEY  = 'cr-unit-tracker:v1';
+    const STORAGE_CSMS = 'cr-unit-tracker:csms:v1';
+
+    const DEFAULT_CSMS = [
+      "Steven Sacco",
+      "Fabien Dumestre",
+      "Gabriel Faure",
+      "Borja Arregui",
+      "Maximilian Urtz",
+      "Liam Hollis",
+      "Mark Zahnlecker",
+      "Sean Iliff",
+      "Travis Palmer",
+      "Brandon Alvarez",
+      "Leander Fourie",
+      "Joel Thompson",
+      "Tomas Vergara",
+      "Gabriel Muller",
+      "Daniel Flach",
+      "Jonathan Salzer",
+      "Jakob Aarup Pedersen",
+      "Luke Parsons",
+      "Twan van Breukelen"
+    ];
 
     function loadState() {
       try {
@@ -283,6 +300,24 @@
       }
     }
 
+    function loadCsms() {
+      try {
+        const raw = localStorage.getItem(STORAGE_CSMS);
+        if (!raw) return null;
+        const arr = JSON.parse(raw);
+        if (!Array.isArray(arr)) return null;
+        return arr;
+      } catch { return null; }
+    }
+
+    function saveCsms(list) {
+      try {
+        localStorage.setItem(STORAGE_CSMS, JSON.stringify(list));
+      } catch (e) {
+        console.error('Failed to save CSMs:', e);
+      }
+    }
+
     function seedStateFromDOM() {
       const cards = Array.from(document.querySelectorAll('.unit-card'));
       return cards.map(card => ({
@@ -294,7 +329,7 @@
         })()),
         region: card.dataset.region || '',
         category: card.dataset.category || card.closest('.column')?.dataset.category || 'implementation-scheduled',
-        csm: card.dataset.csm || '' // NEW
+        csm: card.dataset.csm || ''
       })).filter(u => u.id);
     }
 
@@ -349,12 +384,12 @@
     // =================== Drag & Drop ===================
     let draggedElement = null;
 
-    function handleDragStart(e) {
+    function handleDragStart() {
       draggedElement = this;
       this.classList.add('dragging');
       this.style.opacity = '0.5';
     }
-    function handleDragEnd(e) {
+    function handleDragEnd() {
       this.classList.remove('dragging');
       this.style.opacity = '';
     }
@@ -416,6 +451,47 @@
     function showImportModal(){ document.getElementById('importModal').classList.add('active'); }
     function closeModal(id){ document.getElementById(id).classList.remove('active'); }
 
+    // =================== CSM dropdown helpers ===================
+    function uniquePush(arr, value) {
+      const v = value.trim();
+      if (!v) return arr.slice();
+      const exists = arr.some(x => x.toLowerCase() === v.toLowerCase());
+      return exists ? arr.slice() : [...arr, v];
+    }
+
+    function populateCsmSelect(selectEl, list, includeUnassigned=true) {
+      if (!selectEl) return;
+      const current = selectEl.value;
+      selectEl.innerHTML = ''; // reset
+      if (includeUnassigned) {
+        const opt0 = document.createElement('option');
+        opt0.value = '';
+        opt0.textContent = 'Unassigned';
+        selectEl.appendChild(opt0);
+      }
+      list.forEach(name => {
+        const o = document.createElement('option');
+        o.value = name;
+        o.textContent = name;
+        selectEl.appendChild(o);
+      });
+      // restore selection if possible
+      if (current && [...selectEl.options].some(o => o.value === current)) {
+        selectEl.value = current;
+      }
+    }
+
+    function ensureOption(selectEl, value, listRef) {
+      const v = (value || '').trim();
+      if (!v) return listRef;
+      if (![...selectEl.options].some(o => o.value.toLowerCase() === v.toLowerCase())) {
+        listRef = uniquePush(listRef, v);
+        populateCsmSelect(selectEl, listRef);
+        selectEl.value = v;
+      }
+      return listRef;
+    }
+
     // =================== Add / Import (persist) ===================
     function addUnit() {
       const unitType = document.getElementById('unitType').value;
@@ -423,6 +499,7 @@
       const farmName = document.getElementById('farmName').value.trim();
       const config = document.getElementById('config').value;
       const region = document.getElementById('region').value;
+      const csmSel = document.getElementById('csm').value;
 
       if (!unitType || !unitNumber || !config) { alert('Please fill in required fields'); return; }
 
@@ -430,7 +507,12 @@
       if (state.some(u => u.id === id)) { alert(`Unit ${id} already exists.`); return; }
 
       state.push({
-        id, company: farmName || 'Unknown', config, region: region || '', category: 'implementation-scheduled', csm: ''
+        id,
+        company: farmName || 'Unknown',
+        config,
+        region: region || '',
+        category: 'implementation-scheduled',
+        csm: csmSel || ''
       });
       saveState(state);
       renderAll(state);
@@ -441,6 +523,7 @@
       document.getElementById('farmName').value = '';
       document.getElementById('config').value = '';
       document.getElementById('region').value = '';
+      document.getElementById('csm').value = '';
     }
 
     function importUnits() {
@@ -456,7 +539,12 @@
           const customer = (parts[2] || '').trim();
           if (/^[RS]\d+$/i.test(unit) && !state.some(u => u.id === unit)) {
             state.push({
-              id: unit, company: customer || 'Unknown', config: 'Pending', region: '', category: 'implementation-scheduled', csm: ''
+              id: unit,
+              company: customer || 'Unknown',
+              config: 'Pending',
+              region: '',
+              category: 'implementation-scheduled',
+              csm: ''
             });
             imported++;
           }
@@ -482,11 +570,25 @@
     const e_config  = document.getElementById('e_config');
     const e_region  = document.getElementById('e_region');
     const e_csm     = document.getElementById('e_csm');
+    const e_csm_add = document.getElementById('e_csm_add');
     const e_delete  = document.getElementById('e_delete');
 
     document.getElementById('e_cancel').onclick = () => closeEdit();
     document.getElementById('e_save').onclick   = () => saveEdit();
     e_delete.onclick = () => deleteCard();
+
+    // Add-new CSM from Edit modal
+    e_csm_add.onclick = () => {
+      const name = prompt('Add new CSM name:') || '';
+      const cleaned = name.trim();
+      if (!cleaned) return;
+      csms = uniquePush(csms, cleaned);
+      saveCsms(csms);
+      // refresh both dropdowns
+      populateCsmSelect(document.getElementById('csm'), csms); // Add Unit modal
+      populateCsmSelect(e_csm, csms);
+      e_csm.value = cleaned;
+    };
 
     function openEdit(card) {
       editingCard = card;
@@ -494,6 +596,10 @@
       const id = card.dataset.unitId;
       const item = state.find(u => u.id === id);
       if (!item) return;
+
+      // Ensure CSM dropdown contains any pre-existing value not in the list
+      csms = ensureOption(e_csm, item.csm || '', csms);
+      saveCsms(csms);
 
       e_unitId.value = item.id;
       e_company.value = item.company || '';
@@ -518,7 +624,7 @@
       state[idx].company = e_company.value.trim();
       state[idx].config  = e_config.value;
       state[idx].region  = e_region.value;
-      state[idx].csm     = e_csm.value; // NEW
+      state[idx].csm     = e_csm.value;
 
       saveState(state);
       renderAll(state);
@@ -555,6 +661,17 @@
       state = seedStateFromDOM();
       saveState(state);
     }
+
+    // Initialize CSM list: load or default; also union any CSMs already present in state
+    let csms = loadCsms() || DEFAULT_CSMS.slice();
+    const presentCsms = Array.from(new Set(state.map(u => (u.csm || '').trim()).filter(Boolean)));
+    presentCsms.forEach(name => { csms = uniquePush(csms, name); });
+    saveCsms(csms);
+
+    // Populate both CSM dropdowns
+    populateCsmSelect(document.getElementById('csm'), csms);
+    populateCsmSelect(document.getElementById('e_csm'), csms);
+
     renderAll(state);
   </script>
 </body>
