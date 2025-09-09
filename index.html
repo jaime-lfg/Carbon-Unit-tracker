@@ -35,7 +35,7 @@
   /* Cards */
   .units-container { min-height:40px; }
   .unit-card {
-    position: relative; /* needed for corner emoji */
+    position: relative;
     background:#101a2e; border:1px solid #233a7a; color:#e5e7eb;
     padding:12px; border-radius:12px; margin-bottom:10px; cursor:move;
     transition: box-shadow .15s ease, border-color .15s ease, transform .05s ease;
@@ -56,19 +56,6 @@
   .unit-body { margin-top:6px; display:grid; gap:4px; }
   .company-name { color:#e2e8f0; }
   .muted { color:#9ca3af; font-size:13px; }
-
-  /* Corner siren for Implementation Phase */
-  .corner-emoji {
-    position: absolute;
-    top: 8px;
-    right: 8px;
-    font-size: 18px;
-    line-height: 1;
-    filter: drop-shadow(0 1px 1px rgba(0,0,0,.35));
-    user-select: none;
-    pointer-events: none;
-    z-index: 2;
-  }
 
   /* CSM row */
   .csm-row { display:flex; align-items:center; gap:8px; margin-top:4px; }
@@ -128,7 +115,7 @@
           <div class="count-pill"><span class="count">0</span></div>
         </div>
         <div class="units-container">
-          <!-- Seed examples (only used first run; then localStorage) -->
+          <!-- Seed examples (used once; then localStorage takes over) -->
           <div class="unit-card green" draggable="true" data-unit-id="R001" data-company="Earl Freeman Farms" data-config="G-200-4" data-region="USA" data-category="active">
             <div class="unit-head">
               <div class="unit-id">🇺🇸 <span class="unit-number">R001</span></div>
@@ -184,7 +171,7 @@
           <div class="unit-card red" draggable="true" data-unit-id="S004" data-company="DanBots Agriculture" data-config="G-600-12" data-region="EU" data-category="implementation-phase">
             <div class="unit-head">
               <div class="unit-id">🇩🇰 <span class="unit-number">S004</span></div>
-              <div class="status-pill status-phase">Phase</div>
+              <div class="status-pill status-phase">Active Implementation Phase</div>
             </div>
             <div class="unit-body">
               <div class="company-name">📍 DanBots Agriculture</div>
@@ -196,7 +183,7 @@
           <div class="unit-card red" draggable="true" data-unit-id="R005" data-company="Koetsenburg Nordic" data-config="G-300-6" data-region="EU" data-category="implementation-phase">
             <div class="unit-head">
               <div class="unit-id">🇳🇴 <span class="unit-number">R005</span></div>
-              <div class="status-pill status-phase">Phase</div>
+              <div class="status-pill status-phase">Active Implementation Phase</div>
             </div>
             <div class="unit-body">
               <div class="company-name">📍 Koetsenburg Nordic</div>
@@ -356,10 +343,12 @@
       return arr.some(x=>x.toLowerCase()===v.toLowerCase())?arr.slice():[...arr,v];
     }
     function countryFlag(region){ const map={'USA':'🇺🇸','EU':'🇪🇺','AUS/NZ':'🇦🇺','JAPAN':'🇯🇵','CANADA':'🇨🇦'}; return map[region]||'🏳️'; }
-    function statusMeta(cat){ return cat==='active'?{label:'Active',cls:'status-active'}:
-                                   cat==='inactive'?{label:'Inactive',cls:'status-inactive'}:
-                                   cat==='implementation-phase'?{label:'Phase',cls:'status-phase'}:
-                                   {label:'Scheduled',cls:'status-scheduled'}; }
+    function statusMeta(cat){
+      return cat==='active' ? {label:'Active', cls:'status-active'} :
+             cat==='inactive' ? {label:'Inactive', cls:'status-inactive'} :
+             cat==='implementation-phase' ? {label:'Active Implementation Phase', cls:'status-phase'} :
+             {label:'Scheduled', cls:'status-scheduled'};
+    }
     function initials(name){ const n=(name||'').trim(); if(!n) return 'UN'; const p=n.split(/\s+/); const a=p[0]?.[0]||''; const b=p.length>1?p[p.length-1][0]:(p[0]?.[1]||''); return (a+b).toUpperCase(); }
     function fmtImpl(dateStr){ if(!dateStr) return ''; const [y,m,d]=dateStr.split('-').map(Number); const months=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]; return `${months[m-1]}-${d}-${y}`; }
     function computeCategoryFromImplDate(dateStr){
@@ -423,7 +412,6 @@
       const st=statusMeta(item.category);
       const csmText=(item.csm&&item.csm.trim())?item.csm:'Unassigned';
       const implText=(item.implDate&&item.implDate.trim())?`<div class="muted">Impl: ${fmtImpl(item.implDate)}</div>`:``;
-      const corner = item.category==='implementation-phase' ? `<div class="corner-emoji">🚨</div>` : ``;
 
       card.innerHTML = `
         <div class="unit-head">
@@ -436,7 +424,6 @@
           ${implText}
           <div class="csm-row"><div class="avatar">${initials(csmText==='Unassigned'?'Unassigned':csmText)}</div><div class="muted">CSM: ${csmText}</div></div>
         </div>
-        ${corner}
       `;
       attachDragHandlers(card);
       return card;
@@ -622,7 +609,7 @@
       }
 
       e_unitId.value=item.id;
-      e_company.value=item.company||'';
+      e_company.value=item.company||';
       e_config.value=item.config||'';
       e_region.value=item.region||'';
       e_implDate.value=item.implDate||'';
@@ -664,15 +651,15 @@
     });
 
     /* =================== Toolbar events =================== */
+    const clearBtn = document.getElementById('clearFilters');
     searchInput.addEventListener('input', applyFiltersAndRender);
     filterCsm.addEventListener('change', applyFiltersAndRender);
     filterStatus.addEventListener('change', applyFiltersAndRender);
-    document.getElementById('clearFilters').addEventListener('click',()=>{
+    clearBtn.addEventListener('click', ()=>{
       searchInput.value=''; filterCsm.value=''; filterStatus.value=''; applyFiltersAndRender();
     });
 
     /* =================== Boot =================== */
-    // Populate CSM selects and filter
     function populateAllCsms(){
       populateSelect(document.getElementById('csm'), csms);
       populateSelect(document.getElementById('e_csm'), csms);
