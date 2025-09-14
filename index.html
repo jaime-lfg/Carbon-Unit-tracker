@@ -1,3 +1,5 @@
+Here’s the complete file with Config in the importer (backward-compatible), the edit-modal bug fixed, better search, sorted CSMs, drag-over highlight, and a CSV export button.
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -27,10 +29,12 @@
 
   /* Columns */
   .columns { display:grid; grid-template-columns: repeat(4,1fr); gap:16px; }
-  .column { background:#0e1526; border:1px solid #1f2937; border-radius:14px; padding:12px; min-height:300px; }
+  .column { background:#0e1526; border:1px solid #1f2937; border-radius:14px; padding:12px; min-height:300px; transition:outline .1s ease; }
   .column-header { display:flex; justify-content:space-between; align-items:center; padding-bottom:10px; border-bottom:1px solid #1f2937; margin-bottom:10px; }
   .column-title { font-weight:700; color:#d1d5db; }
   .count-pill { font-size:12px; color:#9ca3af; background:#0b1220; border:1px solid #2a3655; padding:4px 8px; border-radius:999px; }
+
+  .column.drag-over { outline: 2px dashed #3b82f6; outline-offset: 4px; }
 
   /* Cards */
   .units-container { min-height:40px; }
@@ -90,12 +94,13 @@
       <div style="display:flex; gap:10px;">
         <button class="btn btn-green" onclick="showImportModal()">📊 Import</button>
         <button class="btn" onclick="showAddModal()">+ Add Unit</button>
+        <button class="btn btn-secondary" onclick="exportCSV()">⬇️ Export</button>
       </div>
     </div>
 
     <!-- Toolbar -->
     <div class="toolbar">
-      <input id="searchInput" class="input" placeholder="Search unit, company, or CSM…" />
+      <input id="searchInput" class="input" placeholder="Search unit, company, CSM, config, or region…" />
       <select id="filterCsm" class="select"></select>
       <select id="filterStatus" class="select">
         <option value="">All statuses</option>
@@ -262,8 +267,8 @@
     <div class="modal-content">
       <h2 style="margin-bottom:16px;">📊 Import from Spreadsheet</h2>
       <div class="form-group">
-        <label>Paste your data here (CSM<TAB>Unit<TAB>Customer<TAB>Region):</label>
-        <textarea id="importData" rows="8" placeholder="Mark Zahnlecker	S2	Grimmway	North America"></textarea>
+        <label>Paste your data here (CSM<TAB>Unit<TAB>Customer<TAB>Config<TAB>Region):</label>
+        <textarea id="importData" rows="8" placeholder="Mark Zahnlecker	S2	Grimmway	G-300-4	USA"></textarea>
       </div>
       <div class="button-group">
         <button class="btn btn-green" onclick="importUnits()">Import</button>
@@ -359,10 +364,22 @@
       const days=Math.floor((now-impl)/86400000);
       return days<14 ? 'implementation-phase' : 'active';
     }
+    function normalizeRegion(s){
+      const v=(s||'').trim().toLowerCase();
+      if(!v) return '';
+      if(/^(us|usa|united states|north america|na)$/.test(v)) return 'USA';
+      if(/^(eu|europe|european union)$/.test(v)) return 'EU';
+      if(/^(aus|australia|nz|new zealand|anz|aus\\/nz|au\\/nz|oceania)$/.test(v)) return 'AUS/NZ';
+      if(/^(jp|jpn|japan)$/.test(v)) return 'JAPAN';
+      if(/^(ca|can|canada)$/.test(v)) return 'CANADA';
+      return s;
+    }
 
     /* =================== State =================== */
     let state = loadJSON(STORAGE_KEY, null);
-    let csms  = loadJSON(STORAGE_CSMS, null) || DEFAULT_CSMS.slice();
+    let csms  = (loadJSON(STORAGE_CSMS, null) || DEFAULT_CSMS.slice())
+                  .filter(Boolean)
+                  .sort((a,b)=>a.localeCompare(b));
 
     if(!state){
       // Seed initial DOM cards once
@@ -379,6 +396,7 @@
     }
     // Merge CSMs already assigned
     Array.from(new Set(state.map(u=>(u.csm||'').trim()).filter(Boolean))).forEach(n=>csms=uniquePush(csms,n));
+    csms = csms.sort((a,b)=>a.localeCompare(b));
     saveJSON(STORAGE_CSMS, csms);
 
     /* =================== Filters =================== */
@@ -473,7 +491,7 @@
         if(statusVal && u.category!==statusVal) return false;
         if(csmVal && (u.csm||'')!==csmVal) return false;
         if(!q) return true;
-        const hay=[u.id,u.company||'',u.csm||'',u.implDate||''].join(' ').toLowerCase();
+        const hay=[u.id,u.company||'',u.csm||'',u.config||'',u.region||'',u.implDate||''].join(' ').toLowerCase();
         return hay.includes(q);
       });
     }
@@ -486,9 +504,16 @@
     function attachDragHandlers(card){ card.addEventListener('dragstart',handleDragStart); card.addEventListener('dragend',handleDragEnd); }
 
     $$('.column').forEach(column=>{
-      column.addEventListener('dragover', e=>e.preventDefault());
+      column.addEventListener('dragover', e=>{
+        e.preventDefault();
+        column.classList.add('drag-over');
+      });
+      column.addEventListener('dragleave', ()=>{
+        column.classList.remove('drag-over');
+      });
       column.addEventListener('drop', e=>{
         e.stopPropagation();
+        column.classList.remove('drag-over');
         if(!draggedElement) return;
         const newCat=column.dataset.category;
         const id=draggedElement.dataset.unitId;
@@ -546,26 +571,70 @@
     }
 
     function importUnits(){
-      const data=document.getElementById('importData').value;
-      if(!data.trim()){ alert('Please paste data to import'); return; }
-      const lines=data.trim().split('\n'); let imported=0;
-      lines.forEach(line=>{
-        const parts=line.split('\t');
-        if(parts.length>=3){
-          const unit=(parts[1]||'').toUpperCase().trim();
-          const customer=(parts[2]||'').trim();
-          if(/^[RS]\d+$/i.test(unit) && !state.some(u=>u.id===unit)){
-            state.push({ id:unit, company:customer||'Unknown', config:'Pending', region:'', category:'implementation-scheduled', csm:'', implDate:'' });
-            imported++;
-          }
+      const raw = document.getElementById('importData').value;
+      if(!raw.trim()){ alert('Please paste data to import'); return; }
+
+      const allowedConfigs = new Set([
+        'G-200-3','G-200T-4','G-300-4','G-300-5','G-300-6',
+        'G-400-8','G-600-8','G-600-9','G-600-11','G-600-12'
+      ]);
+
+      const sep = /\t|,| {2,}/; // tab, comma, or 2+ spaces
+      const lines = raw.trim().split(/\r?\n/);
+      let imported = 0, skipped = 0;
+
+      for(const line of lines){
+        if(!line.trim()) continue;
+        const parts = line.split(sep).map(s=>s.trim());
+
+        // Supported layouts:
+        // 5 cols: CSM, Unit, Customer, Config, Region
+        // 4 cols: CSM, Unit, Customer, Region      (Config -> 'Pending')
+        // 3 cols: CSM, Unit, Customer              (Region -> '', Config -> 'Pending')
+        const csmName  = (parts[0]||'').trim();
+        const unit     = (parts[1]||'').toUpperCase();
+        const customer = (parts[2]||'').trim();
+        const config   = parts.length>=5 ? (parts[3]||'').trim()
+                         : parts.length===4 ? 'Pending'
+                         : 'Pending';
+        const regionIn = parts.length>=5 ? parts[4]
+                         : parts.length===4 ? parts[3]
+                         : '';
+        const region   = normalizeRegion(regionIn||'');
+
+        if(!/^[RS]\d+$/i.test(unit)){ skipped++; continue; }
+        if(state.some(u=>u.id===unit)){ skipped++; continue; }
+
+        if(csmName){
+          csms = uniquePush(csms, csmName).sort((a,b)=>a.localeCompare(b));
+          saveJSON(STORAGE_CSMS, csms);
         }
-      });
-      if(imported>0){
-        saveJSON(STORAGE_KEY,state);
+
+        const finalConfig = allowedConfigs.has(config) ? config : (config || 'Pending');
+
+        state.push({
+          id: unit,
+          company: customer || 'Unknown',
+          config: finalConfig,
+          region: region || '',
+          category: 'implementation-scheduled',
+          csm: csmName || '',
+          implDate: ''
+        });
+        imported++;
+      }
+
+      if(imported){
+        saveJSON(STORAGE_KEY, state);
         document.getElementById('importData').value='';
-        autoTransitionByDate(); applyFiltersAndRender(); closeModal('importModal');
-        alert(`Imported ${imported} unit(s).`);
-      } else { alert('No new valid units found.'); }
+        populateAllCsms();
+        autoTransitionByDate();
+        applyFiltersAndRender();
+        alert(`Imported ${imported} unit(s).${skipped?` Skipped ${skipped}.`:''}`);
+        closeModal('importModal');
+      } else {
+        alert('No new valid units found.');
+      }
     }
 
     /* =================== Edit / Delete =================== */
@@ -585,7 +654,7 @@
     e_csm_add.onclick=()=>{
       const name=prompt('Add new CSM name:');
       const cleaned=(name||'').trim(); if(!cleaned) return;
-      csms=uniquePush(csms, cleaned);
+      csms=uniquePush(csms, cleaned).sort((a,b)=>a.localeCompare(b));
       saveJSON(STORAGE_CSMS, csms);
       populateSelect(document.getElementById('csm'), csms);
       populateSelect(document.getElementById('e_csm'), csms);
@@ -601,7 +670,7 @@
       if(!item) return;
 
       if(item.csm && !csms.some(n=>n.toLowerCase()===item.csm.toLowerCase())){
-        csms=uniquePush(csms,item.csm);
+        csms=uniquePush(csms,item.csm).sort((a,b)=>a.localeCompare(b));
         saveJSON(STORAGE_CSMS, csms);
         populateSelect(document.getElementById('csm'), csms);
         populateSelect(document.getElementById('e_csm'), csms);
@@ -609,7 +678,7 @@
       }
 
       e_unitId.value=item.id;
-      e_company.value=item.company||';
+      e_company.value=item.company||'';
       e_config.value=item.config||'';
       e_region.value=item.region||'';
       e_implDate.value=item.implDate||'';
@@ -659,6 +728,31 @@
       searchInput.value=''; filterCsm.value=''; filterStatus.value=''; applyFiltersAndRender();
     });
 
+    /* =================== Export =================== */
+    function exportCSV(){
+      const rows = getFiltered().map(u=>({
+        id: u.id,
+        company: u.company||'',
+        config: u.config||'',
+        region: u.region||'',
+        category: u.category,
+        csm: u.csm||'',
+        implDate: u.implDate||''
+      }));
+      const header = Object.keys(rows[0]||{id:'',company:'',config:'',region:'',category:'',csm:'',implDate:''});
+      const csv = [header.join(','), ...rows.map(r=>header.map(h=>{
+        const v = (r[h]??'').toString().replace(/"/g,'""');
+        return /[",\n]/.test(v) ? `"${v}"` : v;
+      }).join(','))].join('\n');
+
+      const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'unit-tracker-export.csv';
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+    }
+
     /* =================== Boot =================== */
     function populateAllCsms(){
       populateSelect(document.getElementById('csm'), csms);
@@ -676,6 +770,7 @@
     window.closeModal=closeModal;
     window.addUnit=addUnit;
     window.importUnits=importUnits;
+    window.exportCSV=exportCSV;
   </script>
 </body>
 </html>
