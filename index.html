@@ -234,11 +234,11 @@
         <input id="unitNumber" type="text" placeholder="e.g., 001, 12, 5">
       </div>
       <div class="form-group">
-        <label>Farm / Company</label>
+        <label>Company</label>
         <input id="farmName" type="text" placeholder="Enter farm/company">
       </div>
       <div class="form-group">
-        <label>Configuration *</label>
+        <label>Configuration</label>
         <select id="config"></select>
       </div>
       <div class="form-group">
@@ -344,7 +344,7 @@
 
     const DEFAULT_CONFIGS = [
       "G-200-3","G-200T-4","G-300-4","G-300-5","G-300-6",
-      "G-400-8","G-600-8","G-600-9","G-600-11","G-600-12"
+      "G-400-8","G-600-8","G-600-9","G-600-11","G-600-12","SLAYER"
     ];
 
     const $ = (s)=>document.querySelector(s);
@@ -552,16 +552,21 @@
     /* =================== Add / Import =================== */
     function addUnit(){
       const unitType=document.getElementById('unitType').value;
-      const unitNumber=document.getElementById('unitNumber').value.trim();
-      const company=document.getElementById('farmName').value.trim();
-      const config=document.getElementById('config').value;
+      const unitNumber=(document.getElementById('unitNumber').value||'').trim();
+      const company=(document.getElementById('farmName').value||'').trim();
+      let   config=(document.getElementById('config').value||'').trim();
       const region=document.getElementById('region').value;
       const csmSel=document.getElementById('csm').value;
       const implDate=document.getElementById('implDate').value;
 
-      if(!unitType||!unitNumber||!config){ alert('Please fill in required fields'); return; }
+      if(!unitType||!unitNumber){ alert('Please fill in Unit Type and Unit Number'); return; }
       const id=`${unitType}${unitNumber}`;
       if(state.some(u=>u.id===id)){ alert(`Unit ${id} already exists.`); return; }
+
+      // Default config: SLAYER for S*, else Pending
+      if(!config){
+        config = id.startsWith('S') ? 'SLAYER' : 'Pending';
+      }
 
       const computedCategory=computeCategoryFromImplDate(implDate);
       state.push({ id, company:company||'Unknown', config, region:region||'', category:computedCategory, csm:csmSel||'', implDate:implDate||'', pinned:false });
@@ -600,15 +605,20 @@
         const unit     = (parts[1]||'').toUpperCase().trim();
         const customer = (parts[2]||'').trim();
         const region   = (parts[3]||'').trim();
-        const config   = (parts[4]||'').trim(); // optional
+        let   config   = (parts[4]||'').trim(); // optional
 
         if(!/^[RS]\d+$/i.test(unit)) return;
         if(state.some(u=>u.id===unit)) return;
 
+        // Default config: SLAYER for S*, else Pending
+        if(!config){
+          config = unit.startsWith('S') ? 'SLAYER' : 'Pending';
+        }
+
         state.push({
           id: unit,
           company: customer || 'Unknown',
-          config: config || 'Pending',
+          config: config,
           region: region || '',
           category: 'implementation-scheduled',
           csm: csm,
@@ -617,7 +627,7 @@
         });
 
         // track configs seen on import
-        if(config) configs = uniquePush(configs, config);
+        configs = uniquePush(configs, config);
 
         imported++;
       });
@@ -668,7 +678,7 @@
       applyFiltersAndRender();
     };
 
-    // NEW: Add Config from Edit modal
+    // Add Config from Edit modal
     e_config_add.onclick=()=>{
       const val=prompt('New Config (e.g., G-500-10):');
       const cleaned=(val||'').trim();
@@ -685,7 +695,7 @@
       const item=state.find(u=>u.id===id);
       if(!item) return;
 
-      // Ensure CSM/Config catalogs include this item's values
+      // Ensure catalogs include this item's values
       if(item.csm && !csms.some(n=>n.toLowerCase()===item.csm.toLowerCase())){
         csms=uniquePush(csms,item.csm);
         saveJSON(STORAGE_CSMS, csms);
