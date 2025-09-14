@@ -44,6 +44,20 @@
     .column-title { font-weight:700; color:#d1d5db; }
     .count-pill { font-size:12px; color:#9ca3af; background:#0b1220; border:1px solid #2a3655; padding:4px 8px; border-radius:999px; }
 
+    /* Category color variables (used by Chip View) */
+    .column[data-category="active"] {
+      --chip-border: #0b7d5b;  --chip-bg: #0b1f1a;   /* green */
+    }
+    .column[data-category="inactive"] {
+      --chip-border: #4b5563;  --chip-bg: #151922;   /* gray */
+    }
+    .column[data-category="implementation-phase"] {
+      --chip-border: #991b1b;  --chip-bg: #1c0f10;   /* red */
+    }
+    .column[data-category="implementation-scheduled"] {
+      --chip-border: #233a7a;  --chip-bg: #0e1b3a;   /* blue */
+    }
+
     /* Cards */
     .units-container { min-height:40px; }
     .unit-card {
@@ -90,15 +104,17 @@
     @media (max-width: 1024px) { .columns { grid-template-columns: repeat(2,1fr); } }
     @media (max-width: 640px)  { .columns { grid-template-columns: 1fr; } }
 
-    /* ===== Chips view (added) ===== */
+    /* ===== Chips view ===== */
     .units-container.chips-mode { display:grid; grid-template-columns: repeat(auto-fill, minmax(120px,1fr)); gap:8px; }
     .unit-chip {
-      background:#101a2e; border:1px solid #233a7a; border-radius:999px; padding:6px 10px;
+      background: var(--chip-bg, #101a2e);
+      border:1px solid var(--chip-border, #233a7a);
+      border-radius:999px; padding:6px 10px;
       display:flex; align-items:center; gap:6px; cursor:pointer; user-select:none;
-      transition: box-shadow .15s ease, border-color .15s ease;
+      transition: box-shadow .15s ease, border-color .15s ease, transform .05s ease;
     }
     .unit-chip:hover { box-shadow: 0 8px 18px rgba(0,0,0,.35); }
-    .unit-chip .dot { width:8px; height:8px; border-radius:999px; flex:0 0 auto; }
+    .unit-chip .dot { width:8px; height:8px; border-radius:999px; flex:0 0 auto; background: var(--chip-border, #233a7a); }
     .unit-chip .id { font-weight:700; font-size:12px; }
     .unit-chip .flag { margin-left:auto; }
   </style>
@@ -480,7 +496,7 @@
       chip.className = 'unit-chip';
       chip.title = `${item.id} • ${item.company||'Unknown'} • ${item.config||'Pending'} • ${item.csm||'Unassigned'}`;
       chip.innerHTML = `
-        <div class="dot" style="background:${statusColor(item.category)}"></div>
+        <div class="dot"></div>
         <div class="id">${item.id}</div>
         <div class="flag">${countryFlag(item.region)}</div>
       `;
@@ -505,7 +521,8 @@
       };
       units.forEach(u => {
         const container = (targets[u.category]||targets['implementation-scheduled']);
-        container.appendChild(viewMode==='chips' ? makeChip(u) : makeCard(u));
+        const node = (viewMode==='chips' ? makeChip(u) : makeCard(u));
+        container.appendChild(node);
       });
       updateCounts();
     }
@@ -805,7 +822,7 @@
       closeEdit();
     }
 
-    // dblclick to open edit (still works in standard view)
+    // dblclick to open edit (standard view only)
     document.addEventListener('dblclick', e=>{
       if(viewMode==='chips') return;
       const card=e.target.closest('.unit-card'); if(!card) return;
