@@ -17,7 +17,6 @@
     .btn:active { transform: translateY(1px); }
     .btn-green { background:#10b981; }
     .btn-green:hover { background:#059669; }
-    .btn-red { background:#ef4444; }
     .btn-secondary { background:#4b5563; }
     .btn-secondary:hover { background:#6b7280; }
     .header-actions { display:flex; gap:8px; align-items:center; }
@@ -99,8 +98,6 @@
       <div class="header-actions">
         <button class="btn btn-green" onclick="showAddModal()">+ Add Unit</button>
         <button class="btn" onclick="showImportModal()">Import</button>
-        <button class="btn-secondary" onclick="exportJSON()">Export JSON</button>
-        <button class="btn-red" onclick="resetSeed()">Reset</button>
       </div>
     </div>
 
@@ -265,7 +262,7 @@
       </div>
       <div class="button-group">
         <button class="btn btn-green" onclick="addUnit()">Add Unit</button>
-        <button class="btn btn-secondary" onclick="closeModal('addModal')">Cancel</button>
+        <button class="btn-secondary" onclick="closeModal('addModal')">Cancel</button>
       </div>
     </div>
   </div>
@@ -280,7 +277,7 @@
       </div>
       <div class="button-group">
         <button class="btn btn-green" onclick="importUnits()">Import</button>
-        <button class="btn btn-secondary" onclick="closeModal('importModal')">Cancel</button>
+        <button class="btn-secondary" onclick="closeModal('importModal')">Cancel</button>
       </div>
     </div>
   </div>
@@ -329,8 +326,8 @@
 
       <div class="button-group">
         <button id="e_save" class="btn btn-green">Save</button>
-        <button id="e_delete" class="btn btn-red">Delete</button>
-        <button id="e_cancel" class="btn btn-secondary">Cancel</button>
+        <button id="e_delete" class="btn btn-secondary">Delete</button>
+        <button id="e_cancel" class="btn-secondary">Cancel</button>
       </div>
     </div>
   </div>
@@ -480,7 +477,7 @@
     function autoTransitionByDate(){
       let changed=false;
       state.forEach(u=>{
-        if(u.pinned) return; // <-- respect manual placement
+        if(u.pinned) return; // respect manual placement
         if(u.implDate){
           const cat=computeCategoryFromImplDate(u.implDate);
           if(cat!==u.category){ u.category=cat; changed=true; }
@@ -519,7 +516,7 @@
         const idx=state.findIndex(x=>x.id===id);
         if(idx>=0){
           state[idx].category=newCat;
-          state[idx].pinned=true;     // <-- pin on manual move
+          state[idx].pinned=true;     // pin on manual move
           saveJSON(STORAGE_KEY,state);
           applyFiltersAndRender();
         }
@@ -730,21 +727,6 @@
       searchInput.value=''; filterCsm.value=''; filterStatus.value=''; applyFiltersAndRender();
     });
 
-    /* =================== Export / Reset =================== */
-    function exportJSON(){
-      const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
-      const url=URL.createObjectURL(blob);
-      const a=document.createElement('a');
-      a.href=url; a.download='unit-tracker-export.json';
-      document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
-    }
-    function resetSeed(){
-      if(!confirm('Reset tracker to the current DOM seed and clear stored data?')) return;
-      localStorage.removeItem(STORAGE_KEY);
-      localStorage.removeItem(STORAGE_CSMS);
-      location.reload();
-    }
-
     /* =================== Boot =================== */
     function populateAllCsms(){
       populateSelect(document.getElementById('csm'), csms);
@@ -762,8 +744,6 @@
     window.closeModal=closeModal;
     window.addUnit=addUnit;
     window.importUnits=importUnits;
-    window.exportJSON=exportJSON;
-    window.resetSeed=resetSeed;
   </script>
 </body>
 </html>
