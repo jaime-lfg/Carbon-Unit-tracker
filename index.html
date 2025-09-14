@@ -46,7 +46,7 @@
     /* Cards */
     .units-container { min-height:40px; }
     .unit-card {
-      position: relative; /* for corner emoji */
+      position: relative;
       background:#101a2e; border:1px solid #233a7a; color:#e5e7eb;
       padding:12px; border-radius:12px; margin-bottom:10px; cursor:move;
       transition: box-shadow .15s ease, border-color .15s ease, transform .05s ease;
@@ -68,23 +68,13 @@
     .company-name { color:#e2e8f0; }
     .muted { color:#9ca3af; font-size:13px; }
 
-    /* Corner emoji for Implementation Phase */
     .corner-emoji {
-      position: absolute;
-      top: 8px;
-      right: 8px;
-      font-size: 18px;
-      line-height: 1;
-      filter: drop-shadow(0 1px 1px rgba(0,0,0,.35));
-      user-select: none;
-      pointer-events: none;
+      position: absolute; top:8px; right:8px; font-size:18px; line-height:1;
+      filter: drop-shadow(0 1px 1px rgba(0,0,0,.35)); user-select:none; pointer-events:none;
     }
 
-    /* CSM row */
     .csm-row { display:flex; align-items:center; gap:8px; margin-top:4px; }
-    .avatar {
-      width:24px; height:24px; border-radius:999px; background:#25314f; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:12px; color:#cbd5e1; border:1px solid #2a3655;
-    }
+    .avatar { width:24px; height:24px; border-radius:999px; background:#25314f; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:12px; color:#cbd5e1; border:1px solid #2a3655; }
 
     /* Modal */
     .modal { display:none; position:fixed; inset:0; background:rgba(2,6,23,.55); align-items:center; justify-content:center; backdrop-filter: blur(2px); }
@@ -92,9 +82,7 @@
     .modal-content { background:#1f2937; padding:24px; border-radius:12px; width:90%; max-width:520px; max-height:80vh; overflow-y:auto; border:1px solid #2b3650; }
     .form-group { margin-bottom:16px; }
     .form-group label { display:block; margin-bottom:6px; font-size:13px; color:#cbd5e1; }
-    .form-group input, .form-group select, .form-group textarea {
-      width:100%; padding:10px 12px; background:#0b1220; border:1px solid #334155; color:#e5e7eb; border-radius:10px; font-size:14px;
-    }
+    .form-group input, .form-group select, .form-group textarea { width:100%; padding:10px 12px; background:#0b1220; border:1px solid #334155; color:#e5e7eb; border-radius:10px; font-size:14px; }
     .button-group { display:flex; gap:12px; margin-top:20px; }
     .button-group button { flex:1; }
 
@@ -138,7 +126,7 @@
           <div class="count-pill"><span class="count">0</span></div>
         </div>
         <div class="units-container">
-          <!-- Seed examples (only used on first run; then localStorage takes over) -->
+          <!-- Seed examples (first run only) -->
           <div class="unit-card green" draggable="true" data-unit-id="R001" data-company="Earl Freeman Farms" data-config="G-200-4" data-region="USA" data-category="active">
             <div class="unit-head">
               <div class="unit-id">🇺🇸 <span class="unit-number">R001</span></div>
@@ -388,7 +376,7 @@
     let csms  = loadJSON(STORAGE_CSMS, null) || DEFAULT_CSMS.slice();
 
     if(!state){
-      // Seed from any cards in the DOM the FIRST time
+      // Seed from DOM cards once
       state = $$('.unit-card').map(card=>({
         id:(card.dataset.unitId||card.querySelector('.unit-number')?.textContent||'').trim(),
         company:(card.dataset.company||card.querySelector('.company-name')?.textContent?.replace('📍','')||'Unknown').trim(),
@@ -396,10 +384,16 @@
         region:(card.dataset.region||''),
         category:(card.dataset.category||card.closest('.column')?.dataset.category||'implementation-scheduled'),
         csm:(card.dataset.csm||''),
-        implDate:(card.dataset.implDate||'')
+        implDate:(card.dataset.implDate||''),
+        pinned:false
       })).filter(u=>u.id);
       saveJSON(STORAGE_KEY, state);
+    } else {
+      // Backfill pinned for existing installs
+      state = state.map(u => ({ pinned:false, ...u, pinned: !!u.pinned }));
+      saveJSON(STORAGE_KEY, state);
     }
+
     // Merge CSMs already assigned
     Array.from(new Set(state.map(u=>(u.csm||'').trim()).filter(Boolean))).forEach(n=>csms=uniquePush(csms,n));
     saveJSON(STORAGE_CSMS, csms);
@@ -486,6 +480,7 @@
     function autoTransitionByDate(){
       let changed=false;
       state.forEach(u=>{
+        if(u.pinned) return; // <-- respect manual placement
         if(u.implDate){
           const cat=computeCategoryFromImplDate(u.implDate);
           if(cat!==u.category){ u.category=cat; changed=true; }
@@ -524,6 +519,7 @@
         const idx=state.findIndex(x=>x.id===id);
         if(idx>=0){
           state[idx].category=newCat;
+          state[idx].pinned=true;     // <-- pin on manual move
           saveJSON(STORAGE_KEY,state);
           applyFiltersAndRender();
         }
@@ -559,7 +555,7 @@
       if(state.some(u=>u.id===id)){ alert(`Unit ${id} already exists.`); return; }
 
       const computedCategory=computeCategoryFromImplDate(implDate);
-      state.push({ id, company:company||'Unknown', config, region:region||'', category:computedCategory, csm:csmSel||'', implDate:implDate||'' });
+      state.push({ id, company:company||'Unknown', config, region:region||'', category:computedCategory, csm:csmSel||'', implDate:implDate||'', pinned:false });
       saveJSON(STORAGE_KEY,state);
 
       // clear form
@@ -596,7 +592,8 @@
               region:region||'',
               category:computedCategory,
               csm:(parts[0]||'').trim(),
-              implDate:implDate||''
+              implDate:implDate||'',
+              pinned:false
             });
             imported++;
           }
@@ -665,7 +662,7 @@
     }
     function closeEdit(){ editModal.classList.remove('active'); editingCard=null; }
 
-    // Preserve category unless implDate changed
+    // Preserve category unless implDate changed; when date changes, unpin so automation can apply
     function saveEdit(){
       if(!editingCard) return;
 
@@ -683,15 +680,14 @@
       const nextImpl     = e_implDate.value || '';
       const nextCsm      = e_csm.value;
 
-      // Default: keep existing category
       let nextCategory = prevCategory;
+      let nextPinned   = state[idx].pinned;
 
-      // Only derive a new category if the implementation date changed
       if (nextImpl !== prevImpl) {
         nextCategory = computeCategoryFromImplDate(nextImpl);
+        nextPinned   = false; // let automation take effect after a date change
       }
 
-      // Apply updates
       state[idx] = {
         ...state[idx],
         company:  nextCompany,
@@ -699,7 +695,8 @@
         region:   nextRegion,
         implDate: nextImpl,
         csm:      nextCsm,
-        category: nextCategory
+        category: nextCategory,
+        pinned:   nextPinned
       };
 
       saveJSON(STORAGE_KEY,state);
