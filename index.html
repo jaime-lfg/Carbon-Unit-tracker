@@ -44,19 +44,11 @@
     .column-title { font-weight:700; color:#d1d5db; }
     .count-pill { font-size:12px; color:#9ca3af; background:#0b1220; border:1px solid #2a3655; padding:4px 8px; border-radius:999px; }
 
-    /* Category color variables (used by Chip View) */
-    .column[data-category="active"] {
-      --chip-border: #0b7d5b;  --chip-bg: #0b1f1a;   /* green */
-    }
-    .column[data-category="inactive"] {
-      --chip-border: #4b5563;  --chip-bg: #151922;   /* gray */
-    }
-    .column[data-category="implementation-phase"] {
-      --chip-border: #991b1b;  --chip-bg: #1c0f10;   /* red */
-    }
-    .column[data-category="implementation-scheduled"] {
-      --chip-border: #233a7a;  --chip-bg: #0e1b3a;   /* blue */
-    }
+    /* Category color variables (for Chip View) */
+    .column[data-category="active"]{ --chip-border:#0b7d5b; --chip-bg:#0b1f1a; }
+    .column[data-category="inactive"]{ --chip-border:#4b5563; --chip-bg:#151922; }
+    .column[data-category="implementation-phase"]{ --chip-border:#991b1b; --chip-bg:#1c0f10; }
+    .column[data-category="implementation-scheduled"]{ --chip-border:#233a7a; --chip-bg:#0e1b3a; }
 
     /* Cards */
     .units-container { min-height:40px; }
@@ -129,7 +121,7 @@
         <button class="btn btn-green" onclick="showAddModal()">+ Add Unit</button>
         <button class="btn" onclick="showImportModal()">Import</button>
         <button class="btn" id="toggleViewBtn" onclick="toggleChipView()">Chip View</button>
-        <button class="btn-red" onclick="deleteAllUnits()">Delete All Units</button>
+        <button class="btn btn-red" onclick="deleteAllUnits()">Delete All Units</button>
       </div>
     </div>
 
@@ -521,8 +513,7 @@
       };
       units.forEach(u => {
         const container = (targets[u.category]||targets['implementation-scheduled']);
-        const node = (viewMode==='chips' ? makeChip(u) : makeCard(u));
-        container.appendChild(node);
+        container.appendChild(viewMode==='chips' ? makeChip(u) : makeCard(u));
       });
       updateCounts();
     }
@@ -627,7 +618,6 @@
       const id=`${unitType}${unitNumber}`;
       if(state.some(u=>u.id===id)){ alert(`Unit ${id} already exists.`); return; }
 
-      // Default config: SLAYER for S*, else Pending
       if(!config){ config = id.startsWith('S') ? 'SLAYER' : 'Pending'; }
 
       const computedCategory=computeCategoryFromImplDate(implDate);
