@@ -272,8 +272,8 @@
     <div class="modal-content">
       <h2 style="margin-bottom:16px;">📊 Import from Spreadsheet</h2>
       <div class="form-group">
-        <label>Paste rows as: CSM<TAB>Unit<TAB>Customer<TAB>Config?<TAB>Region?<TAB>ImplDate? (YYYY-MM-DD)</label>
-        <textarea id="importData" rows="8" placeholder="Mark Zahnlecker	S2	Grimmway	G-300-4	USA	2025-10-01"></textarea>
+        <label>Paste rows as: CSM<TAB>Unit<TAB>Customer<TAB>Region<TAB>Config(optional)</label>
+        <textarea id="importData" rows="8" placeholder="Mark Zahnlecker	S2	Grimmway	USA	G-300-4"></textarea>
       </div>
       <div class="button-group">
         <button class="btn btn-green" onclick="importUnits()">Import</button>
@@ -326,7 +326,7 @@
 
       <div class="button-group">
         <button id="e_save" class="btn btn-green">Save</button>
-        <button id="e_delete" class="btn btn-secondary">Delete</button>
+        <button id="e_delete" class="btn-secondary">Delete</button>
         <button id="e_cancel" class="btn-secondary">Cancel</button>
       </div>
     </div>
@@ -570,42 +570,51 @@
     function importUnits(){
       const data=document.getElementById('importData').value;
       if(!data.trim()){ alert('Please paste data to import'); return; }
-      const lines=data.trim().split('\n'); let imported=0;
-      lines.forEach(line=>{
-        const parts=line.split('\t'); // CSM, Unit, Customer, Config?, Region?, ImplDate?
-        if(parts.length>=2){
-          const unit=(parts[1]||'').toUpperCase().trim();
-          const customer=(parts[2]||'').trim();
-          const config=(parts[3]||'').trim();
-          const region=(parts[4]||'').trim();
-          const implDate=(parts[5]||'').trim();
 
-          if(/^[RS]\d+$/i.test(unit) && !state.some(u=>u.id===unit)){
-            const computedCategory = implDate ? computeCategoryFromImplDate(implDate) : 'implementation-scheduled';
-            state.push({
-              id:unit,
-              company:customer||'Unknown',
-              config:config||'Pending',
-              region:region||'',
-              category:computedCategory,
-              csm:(parts[0]||'').trim(),
-              implDate:implDate||'',
-              pinned:false
-            });
-            imported++;
-          }
-        }
+      const lines=data.trim().split('\n');
+      let imported=0;
+
+      lines.forEach(raw=>{
+        // Expect: CSM, Unit, Customer, Region, Config(optional) — tab-separated
+        const parts = raw.split('\t');
+        if (parts.length < 4) return; // need at least CSM, Unit, Customer, Region
+
+        const csm      = (parts[0]||'').trim();
+        const unit     = (parts[1]||'').toUpperCase().trim();
+        const customer = (parts[2]||'').trim();
+        const region   = (parts[3]||'').trim();
+        const config   = (parts[4]||'').trim(); // optional
+
+        if(!/^[RS]\d+$/i.test(unit)) return;
+        if(state.some(u=>u.id===unit)) return;
+
+        state.push({
+          id: unit,
+          company: customer || 'Unknown',
+          config: config || 'Pending',
+          region: region || '',
+          category: 'implementation-scheduled',
+          csm: csm,
+          implDate: '',
+          pinned: false
+        });
+        imported++;
       });
+
       if(imported>0){
         saveJSON(STORAGE_KEY,state);
         document.getElementById('importData').value='';
+
         // Add any new CSMs from import
         Array.from(new Set(state.map(u=>(u.csm||'').trim()).filter(Boolean))).forEach(n=>csms=uniquePush(csms,n));
         saveJSON(STORAGE_CSMS, csms);
         populateAllCsms();
-        autoTransitionByDate(); applyFiltersAndRender(); closeModal('importModal');
+
+        applyFiltersAndRender(); closeModal('importModal');
         alert(`Imported ${imported} unit(s).`);
-      } else { alert('No new valid units found.'); }
+      } else {
+        alert('No new valid units found. Make sure to use tabs and include at least: CSM, Unit, Customer, Region.');
+      }
     }
 
     /* =================== Edit / Delete =================== */
