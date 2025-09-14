@@ -19,6 +19,8 @@
     .btn-green:hover { background:#059669; }
     .btn-secondary { background:#4b5563; }
     .btn-secondary:hover { background:#6b7280; }
+    .btn-red { background:#ef4444; }
+    .btn-red:hover { background:#dc2626; }
     .header-actions { display:flex; gap:8px; align-items:center; }
     .kpi { background:#0e1526; border:1px solid #2a3655; padding:8px 12px; border-radius:999px; display:flex; align-items:center; gap:8px; }
     .kpi small { color:#9ca3af; font-size:12px; }
@@ -98,6 +100,7 @@
       <div class="header-actions">
         <button class="btn btn-green" onclick="showAddModal()">+ Add Unit</button>
         <button class="btn" onclick="showImportModal()">Import</button>
+        <button class="btn-red" onclick="deleteAllUnits()">Delete All Units</button>
       </div>
     </div>
 
@@ -336,6 +339,7 @@
     /* =================== Helpers & Persistence =================== */
     const STORAGE_KEY  = 'cr-unit-tracker:v1';
     const STORAGE_CSMS = 'cr-unit-tracker:csms:v1';
+    const DELETE_PASSWORD = 'BLAYDE';
 
     const DEFAULT_CSMS = [
       "Steven Sacco","Fabien Dumestre","Gabriel Faure","Borja Arregui","Maximilian Urtz",
@@ -617,7 +621,7 @@
       }
     }
 
-    /* =================== Edit / Delete =================== */
+    /* =================== Edit / Delete (single) =================== */
     let editingCard=null;
     const editModal=document.getElementById('editModal');
     const e_unitId=document.getElementById('e_unitId');
@@ -728,13 +732,30 @@
       openEdit(card);
     });
 
+    /* =================== Delete All Units (password protected) =================== */
+    function deleteAllUnits(){
+      const input = prompt('Enter password to delete ALL units:');
+      if (input === null) return; // cancelled
+      if (input !== DELETE_PASSWORD){
+        alert('Incorrect password.');
+        return;
+      }
+      if (!confirm('This will permanently remove ALL units from this browser. Continue?')) return;
+
+      // Clear units but keep CSMs
+      state = [];
+      saveJSON(STORAGE_KEY, state);
+      applyFiltersAndRender();
+      alert('All units deleted.');
+    }
+
     /* =================== Toolbar events =================== */
-    searchInput.addEventListener('input', applyFiltersAndRender);
-    filterCsm.addEventListener('change', applyFiltersAndRender);
-    filterStatus.addEventListener('change', applyFiltersAndRender);
     document.getElementById('clearFilters').addEventListener('click',()=>{
       searchInput.value=''; filterCsm.value=''; filterStatus.value=''; applyFiltersAndRender();
     });
+    searchInput.addEventListener('input', applyFiltersAndRender);
+    filterCsm.addEventListener('change', applyFiltersAndRender);
+    filterStatus.addEventListener('change', applyFiltersAndRender);
 
     /* =================== Boot =================== */
     function populateAllCsms(){
@@ -753,6 +774,7 @@
     window.closeModal=closeModal;
     window.addUnit=addUnit;
     window.importUnits=importUnits;
+    window.deleteAllUnits=deleteAllUnits;
   </script>
 </body>
 </html>
