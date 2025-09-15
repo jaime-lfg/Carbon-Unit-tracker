@@ -5,22 +5,114 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Carbon Robotics Unit Tracker</title>
   <style>
-    /* --- your existing styles unchanged --- */
     * { margin:0; padding:0; box-sizing:border-box; }
     body { font-family: system-ui, -apple-system, sans-serif; background:#0b0f17; color:#eef2f7; padding:20px; }
     .container { max-width: 1400px; margin:0 auto; }
-    /* … rest of your CSS stays the same … */
+
+    /* Header */
+    .header { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
+    .title { font-size:24px; font-weight:800; letter-spacing:.2px; }
+    .btn { background:#3b82f6; color:#fff; border:none; padding:8px 14px; border-radius:10px; cursor:pointer; font-size:14px; transition:transform .04s ease, background .12s ease; }
+    .btn:hover { background:#2563eb; }
+    .btn:active { transform: translateY(1px); }
+    .btn-green { background:#10b981; }
+    .btn-green:hover { background:#059669; }
+    .btn-secondary { background:#4b5563; }
+    .btn-secondary:hover { background:#6b7280; }
+    .btn-red { background:#ef4444; }
+    .btn-red:hover { background:#dc2626; }
+    .header-actions { display:flex; gap:8px; align-items:center; }
+    .kpi { background:#0e1526; border:1px solid #2a3655; padding:8px 12px; border-radius:999px; display:flex; align-items:center; gap:8px; }
+    .kpi small { color:#9ca3af; font-size:12px; }
+    .kpi strong { font-variant-numeric: tabular-nums; }
+
+    /* Toolbar */
+    .toolbar { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-bottom:16px; }
+    .input, .select {
+      background:#0e1526; border:1px solid #2a3655; color:#e5e7eb; border-radius:10px; padding:9px 12px; font-size:14px; min-width:200px;
+    }
+    .select { min-width:180px; }
+    .pill {
+      background:#0e1526; border:1px solid #2a3655; padding:8px 12px; border-radius:999px; display:flex; align-items:center; gap:8px;
+    }
+    .pill small { color:#9ca3af; font-size:12px; }
+
+    /* Columns */
+    .columns { display:grid; grid-template-columns: repeat(4,1fr); gap:16px; }
+    .column { background:#0e1526; border:1px solid #1f2937; border-radius:14px; padding:12px; min-height:300px; }
+    .column-header { display:flex; justify-content:space-between; align-items:center; padding-bottom:10px; border-bottom:1px solid #1f2937; margin-bottom:10px; }
+    .column-title { font-weight:700; color:#d1d5db; }
+    .count-pill { font-size:12px; color:#9ca3af; background:#0b1220; border:1px solid #2a3655; padding:4px 8px; border-radius:999px; }
+
+    /* Category color variables (for Chip View) */
+    .column[data-category="active"]{ --chip-border:#0b7d5b; --chip-bg:#0b1f1a; }
+    .column[data-category="inactive"]{ --chip-border:#4b5563; --chip-bg:#151922; }
+    .column[data-category="implementation-phase"]{ --chip-border:#991b1b; --chip-bg:#1c0f10; }
+    .column[data-category="implementation-scheduled"]{ --chip-border:#233a7a; --chip-bg:#0e1b3a; }
+
+    /* Cards */
+    .units-container { min-height:40px; }
+    .unit-card {
+      position: relative;
+      background:#101a2e; border:1px solid #233a7a; color:#e5e7eb;
+      padding:12px; border-radius:12px; margin-bottom:10px; cursor:move;
+      transition: box-shadow .15s ease, border-color .15s ease, transform .05s ease;
+    }
+    .unit-card:hover { box-shadow: 0 10px 24px rgba(0,0,0,.35); }
+    .unit-card.dragging { opacity:.6; }
+    .unit-card.green { border-color:#0b7d5b; background:#0b1f1a; }
+    .unit-card.gray  { border-color:#4b5563; background:#151922; }
+    .unit-card.red   { border-color:#991b1b; background:#1c0f10; }
+    .unit-head { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+    .unit-id { font-size:18px; font-weight:800; display:flex; gap:8px; align-items:center; }
+    .status-pill { font-size:12px; padding:4px 10px; border-radius:999px; border:1px solid; }
+    .status-active { background:#052e28; border-color:#0b7d5b; color:#9ef8d5; }
+    .status-inactive { background:#1a1f29; border-color:#4b5563; color:#cbd5e1; }
+    .status-phase { background:#2a1213; border-color:#991b1b; color:#fecaca; }
+    .status-scheduled { background:#0e1b3a; border-color:#233a7a; color:#c7d2fe; }
+
+    .unit-body { margin-top:6px; display:grid; gap:4px; }
+    .company-name { color:#e2e8f0; }
+    .muted { color:#9ca3af; font-size:13px; }
+
+    .corner-emoji {
+      position: absolute; top:8px; right:8px; font-size:18px; line-height:1;
+      filter: drop-shadow(0 1px 1px rgba(0,0,0,.35)); user-select:none; pointer-events:none;
+    }
+
+    .csm-row { display:flex; align-items:center; gap:8px; margin-top:4px; }
+    .avatar { width:24px; height:24px; border-radius:999px; background:#25314f; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:12px; color:#cbd5e1; border:1px solid #2a3655; }
+
+    /* Modal */
+    .modal { display:none; position:fixed; inset:0; background:rgba(2,6,23,.55); align-items:center; justify-content:center; backdrop-filter: blur(2px); }
+    .modal.active { display:flex; }
+    .modal-content { background:#1f2937; padding:24px; border-radius:12px; width:90%; max-width:520px; max-height:80vh; overflow-y:auto; border:1px solid #2b3650; }
+    .form-group { margin-bottom:16px; }
+    .form-group label { display:block; margin-bottom:6px; font-size:13px; color:#cbd5e1; }
+    .form-group input, .form-group select, .form-group textarea { width:100%; padding:10px 12px; background:#0b1220; border:1px solid #334155; color:#e5e7eb; border-radius:10px; font-size:14px; }
+    .button-group { display:flex; gap:12px; margin-top:20px; }
+    .button-group button { flex:1; }
+
+    @media (max-width: 1024px) { .columns { grid-template-columns: repeat(2,1fr); } }
+    @media (max-width: 640px)  { .columns { grid-template-columns: 1fr; } }
+
+    /* ===== Chips view ===== */
+    .units-container.chips-mode { display:grid; grid-template-columns: repeat(auto-fill, minmax(120px,1fr)); gap:8px; }
+    .unit-chip {
+      background: var(--chip-bg, #101a2e);
+      border:1px solid var(--chip-border, #233a7a);
+      border-radius:999px; padding:6px 10px;
+      display:flex; align-items:center; gap:6px; cursor:pointer; user-select:none;
+      transition: box-shadow .15s ease, border-color .15s ease, transform .05s ease;
+    }
+    .unit-chip:hover { box-shadow: 0 8px 18px rgba(0,0,0,.35); }
+    .unit-chip .dot { width:8px; height:8px; border-radius:999px; flex:0 0 auto; background: var(--chip-border, #233a7a); }
+    .unit-chip .id { font-weight:700; font-size:12px; }
+    .unit-chip .flag { margin-left:auto; }
   </style>
 </head>
 <body>
-  <!-- LOGIN PROMPT (shown if not logged in) -->
-  <div id="login-screen" style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;">
-    <h1 style="margin-bottom:16px;">Please sign in</h1>
-    <button class="btn" onclick="signIn()">Sign in with Google</button>
-  </div>
-
-  <!-- MAIN APP (hidden until logged in) -->
-  <div class="container" style="display:none;">
+  <div class="container">
     <!-- Header -->
     <div class="header">
       <div class="title">Carbon Robotics Unit Tracker</div>
@@ -29,8 +121,7 @@
         <button class="btn btn-green" onclick="showAddModal()">+ Add Unit</button>
         <button class="btn" onclick="showImportModal()">Import</button>
         <button class="btn" id="toggleViewBtn" onclick="toggleChipView()">Chip View</button>
-        <button class="btn-red" onclick="deleteAllUnits()">Delete All Units</button>
-        <button class="btn-secondary" onclick="signOut()">Sign out</button>
+        <button class="btn btn-red" onclick="deleteAllUnits()">Delete All Units</button>
       </div>
     </div>
 
@@ -49,47 +140,216 @@
     </div>
 
     <!-- Columns -->
-    <!-- … all your columns and modals stay the same … -->
+    <div class="columns">
+      <div class="column" data-category="active">
+        <div class="column-header">
+          <div class="column-title">Active-Implemented</div>
+          <div class="count-pill"><span class="count">0</span></div>
+        </div>
+        <div class="units-container">
+          <!-- Seed examples (first run only) -->
+          <div class="unit-card green" draggable="true" data-unit-id="R001" data-company="Earl Freeman Farms" data-config="G-200-4" data-region="USA" data-category="active">
+            <div class="unit-head">
+              <div class="unit-id">🇺🇸 <span class="unit-number">R001</span></div>
+              <div class="status-pill status-active">Active</div>
+            </div>
+            <div class="unit-body">
+              <div class="company-name">📍 Earl Freeman Farms</div>
+              <div class="muted">Config: G-200-4</div>
+              <div class="csm-row"><div class="avatar">UN</div><div class="muted">CSM: Unassigned</div></div>
+            </div>
+          </div>
+
+          <div class="unit-card green" draggable="true" data-unit-id="S002" data-company="Biolatina Cooperativa" data-config="G-300-4" data-region="EU" data-category="active">
+            <div class="unit-head">
+              <div class="unit-id">🇪🇺 <span class="unit-number">S002</span></div>
+              <div class="status-pill status-active">Active</div>
+            </div>
+            <div class="unit-body">
+              <div class="company-name">📍 Biolatina Cooperativa</div>
+              <div class="muted">Config: G-300-4</div>
+              <div class="csm-row"><div class="avatar">UN</div><div class="muted">CSM: Unassigned</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="column" data-category="inactive">
+        <div class="column-header">
+          <div class="column-title">Inactive-Winterized</div>
+          <div class="count-pill"><span class="count">0</span></div>
+        </div>
+        <div class="units-container">
+          <div class="unit-card gray" draggable="true" data-unit-id="R003" data-company="Agro Solutions Inc" data-config="G-400-8" data-region="USA" data-category="inactive">
+            <div class="unit-head">
+              <div class="unit-id">🇺🇸 <span class="unit-number">R003</span></div>
+              <div class="status-pill status-inactive">Inactive</div>
+            </div>
+            <div class="unit-body">
+              <div class="company-name">📍 Agro Solutions Inc</div>
+              <div class="muted">Config: G-400-8</div>
+              <div class="csm-row"><div class="avatar">UN</div><div class="muted">CSM: Unassigned</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="column" data-category="implementation-phase">
+        <div class="column-header">
+          <div class="column-title">Active Implementation Phase</div>
+          <div class="count-pill"><span class="count">0</span></div>
+        </div>
+        <div class="units-container">
+          <div class="unit-card red" draggable="true" data-unit-id="S004" data-company="DanBots Agriculture" data-config="G-600-12" data-region="EU" data-category="implementation-phase">
+            <div class="unit-head">
+              <div class="unit-id">🇩🇰 <span class="unit-number">S004</span></div>
+              <div class="status-pill status-phase">Active Implementation Phase</div>
+            </div>
+            <div class="unit-body">
+              <div class="company-name">📍 DanBots Agriculture</div>
+              <div class="muted">Config: G-600-12</div>
+              <div class="csm-row"><div class="avatar">UN</div><div class="muted">CSM: Unassigned</div></div>
+              <div class="corner-emoji">🚨</div>
+            </div>
+          </div>
+
+          <div class="unit-card red" draggable="true" data-unit-id="R005" data-company="Koetsenburg Nordic" data-config="G-300-6" data-region="EU" data-category="implementation-phase">
+            <div class="unit-head">
+              <div class="unit-id">🇳🇴 <span class="unit-number">R005</span></div>
+              <div class="status-pill status-phase">Active Implementation Phase</div>
+            </div>
+            <div class="unit-body">
+              <div class="company-name">📍 Koetsenburg Nordic</div>
+              <div class="muted">Config: G-300-6</div>
+              <div class="csm-row"><div class="avatar">UN</div><div class="muted">CSM: Unassigned</div></div>
+              <div class="corner-emoji">🚨</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="column" data-category="implementation-scheduled">
+        <div class="column-header">
+          <div class="column-title">Implementation Scheduled</div>
+          <div class="count-pill"><span class="count">0</span></div>
+        </div>
+        <div class="units-container"></div>
+      </div>
+    </div>
   </div>
 
-  <script type="module">
-    import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+  <!-- Add Unit Modal -->
+  <div id="addModal" class="modal">
+    <div class="modal-content">
+      <h2 style="margin-bottom:16px;">Add New Unit</h2>
+      <div class="form-group">
+        <label>Unit Type *</label>
+        <select id="unitType">
+          <option value="">Select unit type</option>
+          <option value="R">REAPER (R)</option>
+          <option value="S">SLAYER (S)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Unit Number *</label>
+        <input id="unitNumber" type="text" placeholder="e.g., 001, 12, 5">
+      </div>
+      <div class="form-group">
+        <label>Company</label>
+        <input id="farmName" type="text" placeholder="Enter farm/company">
+      </div>
+      <div class="form-group">
+        <label>Configuration</label>
+        <select id="config"></select>
+      </div>
+      <div class="form-group">
+        <label>Region</label>
+        <select id="region">
+          <option value="">Select region</option>
+          <option value="USA">USA 🇺🇸</option><option value="EU">EU 🇪🇺</option>
+          <option value="AUS/NZ">AUS/NZ 🇦🇺</option><option value="JAPAN">JAPAN 🇯🇵</option>
+          <option value="CANADA">CANADA 🇨🇦</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Implementation Date</label>
+        <input id="implDate" type="date">
+      </div>
+      <div class="form-group">
+        <label>CSM</label>
+        <select id="csm"></select>
+      </div>
+      <div class="button-group">
+        <button class="btn btn-green" onclick="addUnit()">Add Unit</button>
+        <button class="btn-secondary" onclick="closeModal('addModal')">Cancel</button>
+      </div>
+    </div>
+  </div>
 
-    // ================= Supabase Setup =================
-    const SUPABASE_URL = "https://lazpsjzbhekrpvnwlmww.supabase.co";
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxhenBzanpiaGVrcnB2bndsbXd3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc4ODk1MDYsImV4cCI6MjA3MzQ2NTUwNn0.JVYUtdTnxu7CbFZMz6VAt7P0SKIW8QFVt0ibqZJS_PI";
-    const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  <!-- Import Modal -->
+  <div id="importModal" class="modal">
+    <div class="modal-content">
+      <h2 style="margin-bottom:16px;">📊 Import from Spreadsheet</h2>
+      <div class="form-group">
+        <label>Paste rows as: CSM<TAB>Unit<TAB>Customer<TAB>Region<TAB>Config(optional)</label>
+        <textarea id="importData" rows="8" placeholder="Mark Zahnlecker	S2	Grimmway	USA	G-300-4"></textarea>
+      </div>
+      <div class="button-group">
+        <button class="btn btn-green" onclick="importUnits()">Import</button>
+        <button class="btn-secondary" onclick="closeModal('importModal')">Cancel</button>
+      </div>
+    </div>
+  </div>
 
-    async function signIn() {
-      const redirectTo = window.location.origin + "/auth/callback";
-      await sb.auth.signInWithOAuth({
-        provider: "google",
-        options: { redirectTo }
-      });
-    }
+  <!-- Edit Modal -->
+  <div id="editModal" class="modal">
+    <div class="modal-content">
+      <h2 style="margin-bottom:16px;">Edit Unit</h2>
+      <div class="form-group">
+        <label>Unit ID</label>
+        <input id="e_unitId" type="text" readonly>
+      </div>
+      <div class="form-group">
+        <label>Company</label>
+        <input id="e_company" type="text" placeholder="Farm / Customer">
+      </div>
+      <div class="form-group">
+        <label>Configuration</label>
+        <div style="display:flex; gap:8px;">
+          <select id="e_config" style="flex:1"></select>
+          <button id="e_config_add" type="button" class="btn-secondary btn">+ Add Config</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Region</label>
+        <select id="e_region">
+          <option value="">(none)</option>
+          <option value="USA">USA 🇺🇸</option><option value="EU">EU 🇪🇺</option>
+          <option value="AUS/NZ">AUS/NZ 🇦🇺</option><option value="JAPAN">JAPAN 🇯🇵</option>
+          <option value="CANADA">CANADA 🇨🇦</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Implementation Date</label>
+        <input id="e_implDate" type="date">
+      </div>
+      <div class="form-group">
+        <label>CSM</label>
+        <div style="display:flex; gap:8px;">
+          <select id="e_csm" style="flex:1"></select>
+          <button id="e_csm_add" type="button" class="btn-secondary btn">+ Add CSM</button>
+        </div>
+      </div>
 
-    async function signOut() {
-      await sb.auth.signOut();
-      location.reload();
-    }
+      <div class="button-group">
+        <button id="e_save" class="btn btn-green">Save</button>
+        <button id="e_delete" class="btn-secondary">Delete</button>
+        <button id="e_cancel" class="btn-secondary">Cancel</button>
+      </div>
+    </div>
+  </div>
 
-    async function checkUser() {
-      const { data: { user } } = await sb.auth.getUser();
-      if (!user) {
-        document.getElementById("login-screen").style.display = "flex";
-        document.querySelector(".container").style.display = "none";
-      } else {
-        console.log("✅ Signed in as", user.email);
-        document.getElementById("login-screen").style.display = "none";
-        document.querySelector(".container").style.display = "block";
-      }
-    }
-
-    // Run immediately
-    checkUser();
-
-    // ================= Your Existing Tracker Code =================
-    /* (everything you pasted remains here, unchanged) */
+  <script>
     /* =================== Helpers & Persistence =================== */
     const STORAGE_KEY       = 'cr-unit-tracker:v1';
     const STORAGE_CSMS      = 'cr-unit-tracker:csms:v1';
@@ -97,7 +357,527 @@
     const STORAGE_VIEW      = 'cr-unit-tracker:view';
     const DELETE_PASSWORD   = 'BLAYDE';
 
-    // … your entire tracker JS stays as-is …
+    const DEFAULT_CSMS = [
+      "Steven Sacco","Fabien Dumestre","Gabriel Faure","Borja Arregui","Maximilian Urtz",
+      "Liam Hollis","Mark Zahnlecker","Sean Iliff","Travis Palmer","Brandon Alvarez",
+      "Leander Fourie","Joel Thompson","Tomas Vergara","Gabriel Muller","Daniel Flach",
+      "Jonathan Salzer","Jakob Aarup Pedersen","Luke Parsons","Twan van Breukelen"
+    ];
+
+    const DEFAULT_CONFIGS = [
+      "G-200-3","G-200T-4","G-300-4","G-300-5","G-300-6",
+      "G-400-8","G-600-8","G-600-9","G-600-11","G-600-12","SLAYER"
+    ];
+
+    const $ = (s)=>document.querySelector(s);
+    const $$ = (s)=>Array.from(document.querySelectorAll(s));
+    function loadJSON(k,f){ try{const v=localStorage.getItem(k); return v?JSON.parse(v):f;}catch{return f;} }
+    function saveJSON(k,v){ try{localStorage.setItem(k,JSON.stringify(v));}catch(e){console.error(e);} }
+    function uniquePush(arr, value){
+      const v=(value||'').trim(); if(!v) return arr.slice();
+      return arr.some(x=>x.toLowerCase()===v.toLowerCase())?arr.slice():[...arr,v];
+    }
+    function countryFlag(region){ const map={'USA':'🇺🇸','EU':'🇪🇺','AUS/NZ':'🇦🇺','JAPAN':'🇯🇵','CANADA':'🇨🇦'}; return map[region]||'🏳️'; }
+    function statusMeta(cat){ return cat==='active'?{label:'Active',cls:'status-active'}:
+                                   cat==='inactive'?{label:'Inactive',cls:'status-inactive'}:
+                                   cat==='implementation-phase'?{label:'Active Implementation Phase',cls:'status-phase'}:
+                                   {label:'Scheduled',cls:'status-scheduled'}; }
+    function initials(name){ const n=(name||'').trim(); if(!n) return 'UN'; const p=n.split(/\s+/); const a=p[0]?.[0]||''; const b=p.length>1?p[p.length-1][0]:(p[0]?.[1]||''); return (a+b).toUpperCase(); }
+    function fmtImpl(dateStr){ if(!dateStr) return ''; const [y,m,d]=dateStr.split('-').map(Number); const months=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]; return `${months[m-1]}-${d}-${y}`; }
+    function computeCategoryFromImplDate(dateStr){
+      if(!dateStr) return 'implementation-scheduled';
+      const impl=new Date(`${dateStr}T00:00:00`), now=new Date();
+      if(isNaN(impl.getTime())) return 'implementation-scheduled';
+      if(impl>now) return 'implementation-scheduled';
+      const days=Math.floor((now-impl)/86400000);
+      return days<14 ? 'implementation-phase' : 'active';
+    }
+    function statusColor(cat){ return cat==='active'?'#0b7d5b':cat==='inactive'?'#4b5563':cat==='implementation-phase'?'#991b1b':'#233a7a'; }
+
+    /* =================== State =================== */
+    let state    = loadJSON(STORAGE_KEY, null);
+    let csms     = loadJSON(STORAGE_CSMS, null) || DEFAULT_CSMS.slice();
+    let configs  = loadJSON(STORAGE_CONFIGS, null) || DEFAULT_CONFIGS.slice();
+    let viewMode = localStorage.getItem(STORAGE_VIEW) || 'standard'; // 'standard' | 'chips'
+
+    if(!state){
+      // Seed from DOM cards once
+      state = $$('.unit-card').map(card=>({
+        id:(card.dataset.unitId||card.querySelector('.unit-number')?.textContent||'').trim(),
+        company:(card.dataset.company||card.querySelector('.company-name')?.textContent?.replace('📍','')||'Unknown').trim(),
+        config:(card.dataset.config||'Pending'),
+        region:(card.dataset.region||''),
+        category:(card.dataset.category||card.closest('.column')?.dataset.category||'implementation-scheduled'),
+        csm:(card.dataset.csm||''),
+        implDate:(card.dataset.implDate||''),
+        pinned:false
+      })).filter(u=>u.id);
+      saveJSON(STORAGE_KEY, state);
+    } else {
+      // Backfill pinned for existing installs
+      state = state.map(u => ({ pinned:false, ...u, pinned: !!u.pinned }));
+      saveJSON(STORAGE_KEY, state);
+    }
+
+    // Merge catalogs already present in state
+    Array.from(new Set(state.map(u=>(u.csm||'').trim()).filter(Boolean))).forEach(n=>csms=uniquePush(csms,n));
+    Array.from(new Set(state.map(u=>(u.config||'').trim()).filter(Boolean))).forEach(c=>configs=uniquePush(configs,c));
+    saveJSON(STORAGE_CSMS, csms);
+    saveJSON(STORAGE_CONFIGS, configs);
+
+    // Initialize toggle button label
+    const toggleBtn = document.getElementById('toggleViewBtn');
+    function syncToggleLabel(){ toggleBtn.textContent = (viewMode==='chips' ? 'Standard View' : 'Chip View'); }
+    syncToggleLabel();
+
+    /* =================== Filters =================== */
+    const searchInput=$('#searchInput'), filterCsm=$('#filterCsm'), filterStatus=$('#filterStatus');
+
+    function populateCsmFilter(){
+      const prev=filterCsm.value;
+      filterCsm.innerHTML='';
+      const all=document.createElement('option'); all.value=''; all.textContent='All CSMs'; filterCsm.appendChild(all);
+      csms.forEach(n=>{ const o=document.createElement('option'); o.value=n; o.textContent=n; filterCsm.appendChild(o); });
+      if([...(filterCsm.options)].some(o=>o.value===prev)) filterCsm.value=prev;
+    }
+
+    /* =================== Rendering =================== */
+    function makeCard(item){
+      const card=document.createElement('div');
+      card.className='unit-card';
+      card.draggable=true;
+      card.dataset.unitId=item.id;
+      card.dataset.company=item.company||'Unknown';
+      card.dataset.config=item.config||'Pending';
+      card.dataset.region=item.region||'';
+      card.dataset.category=item.category;
+      card.dataset.csm=item.csm||'';
+      card.dataset.implDate=item.implDate||'';
+
+      if(item.category==='active') card.classList.add('green');
+      else if(item.category==='inactive') card.classList.add('gray');
+      else if(item.category==='implementation-phase') card.classList.add('red');
+
+      const st=statusMeta(item.category);
+      const csmText=(item.csm&&item.csm.trim())?item.csm:'Unassigned';
+      const implText=(item.implDate&&item.implDate.trim())?`<div class="muted">Impl: ${fmtImpl(item.implDate)}</div>`:``;
+      const corner = item.category==='implementation-phase' ? `<div class="corner-emoji">🚨</div>` : ``;
+
+      card.innerHTML = `
+        <div class="unit-head">
+          <div class="unit-id">${countryFlag(item.region)} <span class="unit-number">${item.id}</span></div>
+          <div class="status-pill ${st.cls}">${st.label}</div>
+        </div>
+        <div class="unit-body">
+          <div class="company-name">📍 ${item.company || 'Unknown'}</div>
+          <div class="muted">Config: ${item.config || 'Pending'}</div>
+          ${implText}
+          <div class="csm-row">
+            <div class="avatar">${initials(csmText)}</div>
+            <div class="muted">CSM: ${csmText}</div>
+          </div>
+        </div>
+        ${corner}
+      `;
+      attachDragHandlers(card);
+      return card;
+    }
+
+    function makeChip(item){
+      const chip = document.createElement('div');
+      chip.className = 'unit-chip';
+      chip.title = `${item.id} • ${item.company||'Unknown'} • ${item.config||'Pending'} • ${item.csm||'Unassigned'}`;
+      chip.innerHTML = `
+        <div class="dot"></div>
+        <div class="id">${item.id}</div>
+        <div class="flag">${countryFlag(item.region)}</div>
+      `;
+      chip.addEventListener('click', ()=>{
+        const proxy = document.createElement('div');
+        proxy.dataset.unitId = item.id;
+        openEdit(proxy);
+      });
+      return chip;
+    }
+
+    function renderAll(units){
+      $$('.units-container').forEach(c=>{
+        c.classList.toggle('chips-mode', viewMode==='chips');
+        c.innerHTML='';
+      });
+      const targets={
+        'active': document.querySelector('[data-category="active"] .units-container'),
+        'inactive': document.querySelector('[data-category="inactive"] .units-container'),
+        'implementation-phase': document.querySelector('[data-category="implementation-phase"] .units-container'),
+        'implementation-scheduled': document.querySelector('[data-category="implementation-scheduled"] .units-container')
+      };
+      units.forEach(u => {
+        const container = (targets[u.category]||targets['implementation-scheduled']);
+        container.appendChild(viewMode==='chips' ? makeChip(u) : makeCard(u));
+      });
+      updateCounts();
+    }
+
+    function updateCounts(){
+      $$('.column').forEach(column=>{
+        const count=column.querySelectorAll(viewMode==='chips'?'.unit-chip':'.unit-card').length;
+        column.querySelector('.count').textContent=count;
+      });
+      const active=document.querySelectorAll('[data-category="active"] ' + (viewMode==='chips'?'.unit-chip':'.unit-card')).length;
+      const implPhase=document.querySelectorAll('[data-category="implementation-phase"] ' + (viewMode==='chips'?'.unit-chip':'.unit-card')).length;
+      const total=document.querySelectorAll(viewMode==='chips'?'.unit-chip':'.unit-card').length;
+      const percentage= total>0 ? Math.round(((active+implPhase)/total)*100) : 0;
+      const pctEl=document.getElementById('percentage');
+      if(pctEl) pctEl.textContent = percentage + '%';
+    }
+
+    /* =================== Auto-transition =================== */
+    function autoTransitionByDate(){
+      let changed=false;
+      state.forEach(u=>{
+        if(u.pinned) return; // respect manual placement
+        if(u.implDate){
+          const cat=computeCategoryFromImplDate(u.implDate);
+          if(cat!==u.category){ u.category=cat; changed=true; }
+        }
+      });
+      if(changed) saveJSON(STORAGE_KEY,state);
+    }
+
+    function getFiltered(){
+      const q=(searchInput.value||'').trim().toLowerCase();
+      const csmVal=filterCsm.value||'';
+      const statusVal=filterStatus.value||'';
+      return state.filter(u=>{
+        if(statusVal && u.category!==statusVal) return false;
+        if(csmVal && (u.csm||'')!==csmVal) return false;
+        if(!q) return true;
+        const hay=[u.id,u.company||'',u.csm||'',u.implDate||'',u.config||''].join(' ').toLowerCase();
+        return hay.includes(q);
+      });
+    }
+    function applyFiltersAndRender(){ renderAll(getFiltered()); }
+
+    /* =================== Drag & Drop (standard view only) =================== */
+    let draggedElement=null;
+    function handleDragStart(e){ if(viewMode==='chips') return; draggedElement=this; this.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; }
+    function handleDragEnd(){ if(this.classList.contains('dragging')) this.classList.remove('dragging'); draggedElement=null; }
+    function attachDragHandlers(card){ card.addEventListener('dragstart',handleDragStart); card.addEventListener('dragend',handleDragEnd); }
+
+    $$('.column').forEach(column=>{
+      column.addEventListener('dragover', e=>{
+        if(viewMode==='chips') return; e.preventDefault(); e.dataTransfer.dropEffect='move';
+      });
+      column.addEventListener('drop', e=>{
+        if(viewMode==='chips') return;
+        e.preventDefault(); e.stopPropagation();
+        if(!draggedElement) return;
+        const newCat=column.dataset.category;
+        const id=draggedElement.dataset.unitId;
+        const idx=state.findIndex(x=>x.id===id);
+        if(idx>=0){
+          state[idx].category=newCat;
+          state[idx].pinned=true;     // pin on manual move
+          saveJSON(STORAGE_KEY,state);
+          applyFiltersAndRender();
+        }
+      });
+    });
+
+    /* =================== Select helpers =================== */
+    function populateSelect(sel, list, includeUnassigned=true, allLabel){
+      const prev=sel.value; sel.innerHTML='';
+      if(allLabel){ const o=document.createElement('option'); o.value=''; o.textContent=allLabel; sel.appendChild(o); }
+      else if(includeUnassigned){ const z=document.createElement('option'); z.value=''; z.textContent='Unassigned'; sel.appendChild(z); }
+      list.forEach(n=>{ const o=document.createElement('option'); o.value=n; o.textContent=n; sel.appendChild(o); });
+      if([...(sel.options)].some(o=>o.value===prev)) sel.value=prev;
+    }
+    function populateConfig(sel, list, includeEmptyLabel){
+      const prev=sel.value; sel.innerHTML='';
+      if(includeEmptyLabel){ const o=document.createElement('option'); o.value=''; o.textContent=includeEmptyLabel; sel.appendChild(o); }
+      list.forEach(v=>{ const o=document.createElement('option'); o.value=v; o.textContent=v; sel.appendChild(o); });
+      if([...(sel.options)].some(o=>o.value===prev)) sel.value=prev;
+    }
+
+    /* =================== Modals =================== */
+    function showAddModal(){ document.getElementById('addModal').classList.add('active'); }
+    function showImportModal(){ document.getElementById('importModal').classList.add('active'); }
+    function closeModal(id){ document.getElementById(id).classList.remove('active'); }
+
+    /* =================== Add / Import =================== */
+    function addUnit(){
+      const unitType=document.getElementById('unitType').value;
+      const unitNumber=(document.getElementById('unitNumber').value||'').trim();
+      const company=(document.getElementById('farmName').value||'').trim();
+      let   config=(document.getElementById('config').value||'').trim();
+      const region=document.getElementById('region').value;
+      const csmSel=document.getElementById('csm').value;
+      const implDate=document.getElementById('implDate').value;
+
+      if(!unitType||!unitNumber){ alert('Please fill in Unit Type and Unit Number'); return; }
+      const id=`${unitType}${unitNumber}`;
+      if(state.some(u=>u.id===id)){ alert(`Unit ${id} already exists.`); return; }
+
+      if(!config){ config = id.startsWith('S') ? 'SLAYER' : 'Pending'; }
+
+      const computedCategory=computeCategoryFromImplDate(implDate);
+      state.push({ id, company:company||'Unknown', config, region:region||'', category:computedCategory, csm:csmSel||'', implDate:implDate||'', pinned:false });
+      saveJSON(STORAGE_KEY,state);
+
+      configs = uniquePush(configs, config);
+      saveJSON(STORAGE_CONFIGS, configs);
+      populateConfigSelects();
+
+      // clear form
+      document.getElementById('unitType').value='';
+      document.getElementById('unitNumber').value='';
+      document.getElementById('farmName').value='';
+      document.getElementById('config').value='';
+      document.getElementById('region').value='';
+      document.getElementById('csm').value='';
+      document.getElementById('implDate').value='';
+
+      autoTransitionByDate(); applyFiltersAndRender(); closeModal('addModal');
+    }
+
+    function importUnits(){
+      const data=document.getElementById('importData').value;
+      if(!data.trim()){ alert('Please paste data to import'); return; }
+
+      const lines=data.trim().split('\n');
+      let imported=0;
+
+      lines.forEach(raw=>{
+        // Expect: CSM, Unit, Customer, Region, Config(optional) — tab-separated
+        const parts = raw.split('\t');
+        if (parts.length < 4) return;
+
+        const csm      = (parts[0]||'').trim();
+        const unit     = (parts[1]||'').toUpperCase().trim();
+        const customer = (parts[2]||'').trim();
+        const region   = (parts[3]||'').trim();
+        let   config   = (parts[4]||'').trim();
+
+        if(!/^[RS]\d+$/i.test(unit)) return;
+        if(state.some(u=>u.id===unit)) return;
+
+        if(!config){ config = unit.startsWith('S') ? 'SLAYER' : 'Pending'; }
+
+        state.push({
+          id: unit, company: customer || 'Unknown', config,
+          region: region || '', category: 'implementation-scheduled',
+          csm: csm, implDate: '', pinned: false
+        });
+
+        configs = uniquePush(configs, config);
+        imported++;
+      });
+
+      if(imported>0){
+        saveJSON(STORAGE_KEY,state);
+        saveJSON(STORAGE_CONFIGS, configs);
+        document.getElementById('importData').value='';
+
+        Array.from(new Set(state.map(u=>(u.csm||'').trim()).filter(Boolean))).forEach(n=>csms=uniquePush(csms,n));
+        saveJSON(STORAGE_CSMS, csms);
+        populateAllCsms();
+        populateConfigSelects();
+
+        applyFiltersAndRender(); closeModal('importModal');
+        alert(`Imported ${imported} unit(s).`);
+      } else {
+        alert('No new valid units found. Make sure to use tabs and include at least: CSM, Unit, Customer, Region.');
+      }
+    }
+
+    /* =================== Edit / Delete (single) =================== */
+    let editingCard=null;
+    const editModal=document.getElementById('editModal');
+    const e_unitId=document.getElementById('e_unitId');
+    const e_company=document.getElementById('e_company');
+    const e_config=document.getElementById('e_config');
+    const e_region=document.getElementById('e_region');
+    const e_implDate=document.getElementById('e_implDate');
+    const e_csm=document.getElementById('e_csm');
+    const e_csm_add=document.getElementById('e_csm_add');
+    const e_config_add=document.getElementById('e_config_add');
+
+    document.getElementById('e_cancel').onclick=()=>closeEdit();
+    document.getElementById('e_save').onclick=()=>saveEdit();
+    document.getElementById('e_delete').onclick=()=>deleteCard();
+
+    e_csm_add.onclick=()=>{
+      const name=prompt('Add new CSM name:');
+      const cleaned=(name||'').trim(); if(!cleaned) return;
+      csms=uniquePush(csms, cleaned);
+      saveJSON(STORAGE_CSMS, csms);
+      populateSelect(document.getElementById('csm'), csms);
+      populateSelect(document.getElementById('e_csm'), csms);
+      populateCsmFilter();
+      e_csm.value=cleaned;
+      applyFiltersAndRender();
+    };
+
+    e_config_add.onclick=()=>{
+      const val=prompt('New Config (e.g., G-500-10):');
+      const cleaned=(val||'').trim();
+      if(!cleaned) return;
+      configs = uniquePush(configs, cleaned);
+      saveJSON(STORAGE_CONFIGS, configs);
+      populateConfigSelects();
+      e_config.value = cleaned;
+    };
+
+    function openEdit(card){
+      editingCard=card;
+      const id=card.dataset.unitId;
+      const item=state.find(u=>u.id===id);
+      if(!item) return;
+
+      if(item.csm && !csms.some(n=>n.toLowerCase()===item.csm.toLowerCase())){
+        csms=uniquePush(csms,item.csm);
+        saveJSON(STORAGE_CSMS, csms);
+        populateSelect(document.getElementById('csm'), csms);
+        populateSelect(document.getElementById('e_csm'), csms);
+        populateCsmFilter();
+      }
+      if(item.config && !configs.some(c=>c.toLowerCase()===item.config.toLowerCase())){
+        configs=uniquePush(configs,item.config);
+        saveJSON(STORAGE_CONFIGS, configs);
+        populateConfigSelects();
+      }
+
+      e_unitId.value=item.id;
+      e_company.value=item.company||'';
+      e_config.value=item.config||'';
+      e_region.value=item.region||'';
+      e_implDate.value=item.implDate||'';
+      e_csm.value=item.csm||'';
+
+      editModal.classList.add('active');
+    }
+    function closeEdit(){ editModal.classList.remove('active'); editingCard=null; }
+
+    function saveEdit(){
+      if(!editingCard) return;
+
+      const id  = editingCard.dataset.unitId;
+      const idx = state.findIndex(u => u.id === id);
+      if (idx < 0) return;
+
+      const prevCategory = state[idx].category;
+      const prevImpl     = state[idx].implDate || '';
+
+      const nextCompany  = e_company.value.trim();
+      const nextConfig   = e_config.value;
+      const nextRegion   = e_region.value;
+      const nextImpl     = e_implDate.value || '';
+      const nextCsm      = e_csm.value;
+
+      let nextCategory = prevCategory;
+      let nextPinned   = state[idx].pinned;
+
+      if (nextImpl !== prevImpl) {
+        nextCategory = computeCategoryFromImplDate(nextImpl);
+        nextPinned   = false;
+      }
+
+      state[idx] = {
+        ...state[idx],
+        company:  nextCompany,
+        config:   nextConfig,
+        region:   nextRegion,
+        implDate: nextImpl,
+        csm:      nextCsm,
+        category: nextCategory,
+        pinned:   nextPinned
+      };
+
+      configs = uniquePush(configs, nextConfig);
+      saveJSON(STORAGE_CONFIGS, configs);
+      populateConfigSelects();
+
+      saveJSON(STORAGE_KEY,state);
+      autoTransitionByDate();
+      applyFiltersAndRender();
+      closeEdit();
+    }
+
+    function deleteCard(){
+      if(!editingCard) return;
+      const id=editingCard.dataset.unitId||'this unit';
+      if(!confirm(`Delete ${id}? This cannot be undone.`)) return;
+      const idx=state.findIndex(u=>u.id===id);
+      if(idx>=0){ state.splice(idx,1); saveJSON(STORAGE_KEY,state); applyFiltersAndRender(); }
+      closeEdit();
+    }
+
+    // dblclick to open edit (standard view only)
+    document.addEventListener('dblclick', e=>{
+      if(viewMode==='chips') return;
+      const card=e.target.closest('.unit-card'); if(!card) return;
+      if(card.classList.contains('dragging')) return;
+      e.preventDefault(); e.stopPropagation();
+      openEdit(card);
+    });
+
+    /* =================== Delete All Units (password protected) =================== */
+    function deleteAllUnits(){
+      const input = prompt('Enter password to delete ALL units:');
+      if (input === null) return; // cancelled
+      if (input !== DELETE_PASSWORD){
+        alert('Incorrect password.');
+        return;
+      }
+      if (!confirm('This will permanently remove ALL units from this browser. Continue?')) return;
+
+      state = [];
+      saveJSON(STORAGE_KEY, state);
+      applyFiltersAndRender();
+      alert('All units deleted.');
+    }
+
+    /* =================== Populate selects =================== */
+    function populateAllCsms(){
+      populateSelect(document.getElementById('csm'), csms);
+      populateSelect(document.getElementById('e_csm'), csms);
+      populateCsmFilter();
+    }
+    function populateConfigSelects(){
+      populateConfig(document.getElementById('config'), configs, null);
+      populateConfig(document.getElementById('e_config'), configs, '(none)');
+    }
+
+    /* =================== Toolbar events =================== */
+    document.getElementById('clearFilters').addEventListener('click',()=>{
+      searchInput.value=''; filterCsm.value=''; filterStatus.value=''; applyFiltersAndRender();
+    });
+    searchInput.addEventListener('input', applyFiltersAndRender);
+    filterCsm.addEventListener('change', applyFiltersAndRender);
+    filterStatus.addEventListener('change', applyFiltersAndRender);
+
+    /* =================== Chip View Toggle =================== */
+    function toggleChipView(){
+      viewMode = (viewMode === 'chips' ? 'standard' : 'chips');
+      localStorage.setItem(STORAGE_VIEW, viewMode);
+      syncToggleLabel();
+      applyFiltersAndRender();
+    }
+    window.toggleChipView = toggleChipView;
+
+    /* =================== Boot =================== */
+    populateAllCsms();
+    populateConfigSelects();
+    autoTransitionByDate();
+    applyFiltersAndRender();
+
+    // expose for buttons
+    window.showAddModal=showAddModal;
+    window.showImportModal=showImportModal;
+    window.closeModal=closeModal;
+    window.addUnit=addUnit;
+    window.importUnits=importUnits;
+    window.deleteAllUnits=deleteAllUnits;
   </script>
 </body>
 </html>
