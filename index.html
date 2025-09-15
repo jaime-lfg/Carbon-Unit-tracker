@@ -89,6 +89,18 @@
 
     @media (max-width: 1024px) { .columns { grid-template-columns: repeat(2,1fr); } }
     @media (max-width: 640px)  { .columns { grid-template-columns: 1fr; } }
+
+    /* ===== Chips view (added) ===== */
+    .units-container.chips-mode { display:grid; grid-template-columns: repeat(auto-fill, minmax(120px,1fr)); gap:8px; }
+    .unit-chip {
+      background:#101a2e; border:1px solid #233a7a; border-radius:999px; padding:6px 10px;
+      display:flex; align-items:center; gap:6px; cursor:pointer; user-select:none;
+      transition: box-shadow .15s ease, border-color .15s ease;
+    }
+    .unit-chip:hover { box-shadow: 0 8px 18px rgba(0,0,0,.35); }
+    .unit-chip .dot { width:8px; height:8px; border-radius:999px; flex:0 0 auto; }
+    .unit-chip .id { font-weight:700; font-size:12px; }
+    .unit-chip .flag { margin-left:auto; }
   </style>
 </head>
 <body>
@@ -100,6 +112,7 @@
       <div class="header-actions">
         <button class="btn btn-green" onclick="showAddModal()">+ Add Unit</button>
         <button class="btn" onclick="showImportModal()">Import</button>
+        <button class="btn" id="toggleViewBtn" onclick="toggleChipView()">Chip View</button>
         <button class="btn-red" onclick="deleteAllUnits()">Delete All Units</button>
       </div>
     </div>
@@ -234,11 +247,11 @@
         <input id="unitNumber" type="text" placeholder="e.g., 001, 12, 5">
       </div>
       <div class="form-group">
-        <label>Farm / Company</label>
+        <label>Company</label>
         <input id="farmName" type="text" placeholder="Enter farm/company">
       </div>
       <div class="form-group">
-        <label>Configuration *</label>
+        <label>Configuration</label>
         <select id="config"></select>
       </div>
       <div class="form-group">
@@ -333,6 +346,7 @@
     const STORAGE_KEY       = 'cr-unit-tracker:v1';
     const STORAGE_CSMS      = 'cr-unit-tracker:csms:v1';
     const STORAGE_CONFIGS   = 'cr-unit-tracker:configs:v1';
+    const STORAGE_VIEW      = 'cr-unit-tracker:view';
     const DELETE_PASSWORD   = 'BLAYDE';
 
     const DEFAULT_CSMS = [
@@ -344,7 +358,7 @@
 
     const DEFAULT_CONFIGS = [
       "G-200-3","G-200T-4","G-300-4","G-300-5","G-300-6",
-      "G-400-8","G-600-8","G-600-9","G-600-11","G-600-12"
+      "G-400-8","G-600-8","G-600-9","G-600-11","G-600-12","SLAYER"
     ];
 
     const $ = (s)=>document.querySelector(s);
@@ -370,11 +384,13 @@
       const days=Math.floor((now-impl)/86400000);
       return days<14 ? 'implementation-phase' : 'active';
     }
+    function statusColor(cat){ return cat==='active'?'#0b7d5b':cat==='inactive'?'#4b5563':cat==='implementation-phase'?'#991b1b':'#233a7a'; }
 
     /* =================== State =================== */
     let state    = loadJSON(STORAGE_KEY, null);
     let csms     = loadJSON(STORAGE_CSMS, null) || DEFAULT_CSMS.slice();
     let configs  = loadJSON(STORAGE_CONFIGS, null) || DEFAULT_CONFIGS.slice();
+    let viewMode = localStorage.getItem(STORAGE_VIEW) || 'standard'; // 'standard' | 'chips'
 
     if(!state){
       // Seed from DOM cards once
@@ -395,11 +411,16 @@
       saveJSON(STORAGE_KEY, state);
     }
 
-    // Merge CSMs & Configs already present in state
+    // Merge catalogs already present in state
     Array.from(new Set(state.map(u=>(u.csm||'').trim()).filter(Boolean))).forEach(n=>csms=uniquePush(csms,n));
     Array.from(new Set(state.map(u=>(u.config||'').trim()).filter(Boolean))).forEach(c=>configs=uniquePush(configs,c));
     saveJSON(STORAGE_CSMS, csms);
     saveJSON(STORAGE_CONFIGS, configs);
+
+    // Initialize toggle button label
+    const toggleBtn = document.getElementById('toggleViewBtn');
+    function syncToggleLabel(){ toggleBtn.textContent = (viewMode==='chips' ? 'Standard View' : 'Chip View'); }
+    syncToggleLabel();
 
     /* =================== Filters =================== */
     const searchInput=$('#searchInput'), filterCsm=$('#filterCsm'), filterStatus=$('#filterStatus');
@@ -454,26 +475,49 @@
       return card;
     }
 
+    function makeChip(item){
+      const chip = document.createElement('div');
+      chip.className = 'unit-chip';
+      chip.title = `${item.id} • ${item.company||'Unknown'} • ${item.config||'Pending'} • ${item.csm||'Unassigned'}`;
+      chip.innerHTML = `
+        <div class="dot" style="background:${statusColor(item.category)}"></div>
+        <div class="id">${item.id}</div>
+        <div class="flag">${countryFlag(item.region)}</div>
+      `;
+      chip.addEventListener('click', ()=>{
+        const proxy = document.createElement('div');
+        proxy.dataset.unitId = item.id;
+        openEdit(proxy);
+      });
+      return chip;
+    }
+
     function renderAll(units){
-      $$('.units-container').forEach(c=>c.innerHTML='');
+      $$('.units-container').forEach(c=>{
+        c.classList.toggle('chips-mode', viewMode==='chips');
+        c.innerHTML='';
+      });
       const targets={
         'active': document.querySelector('[data-category="active"] .units-container'),
         'inactive': document.querySelector('[data-category="inactive"] .units-container'),
         'implementation-phase': document.querySelector('[data-category="implementation-phase"] .units-container'),
         'implementation-scheduled': document.querySelector('[data-category="implementation-scheduled"] .units-container')
       };
-      units.forEach(u => (targets[u.category]||targets['implementation-scheduled']).appendChild(makeCard(u)));
+      units.forEach(u => {
+        const container = (targets[u.category]||targets['implementation-scheduled']);
+        container.appendChild(viewMode==='chips' ? makeChip(u) : makeCard(u));
+      });
       updateCounts();
     }
 
     function updateCounts(){
       $$('.column').forEach(column=>{
-        const count=column.querySelectorAll('.unit-card').length;
+        const count=column.querySelectorAll(viewMode==='chips'?'.unit-chip':'.unit-card').length;
         column.querySelector('.count').textContent=count;
       });
-      const active=document.querySelectorAll('[data-category="active"] .unit-card').length;
-      const implPhase=document.querySelectorAll('[data-category="implementation-phase"] .unit-card').length;
-      const total=document.querySelectorAll('.unit-card').length;
+      const active=document.querySelectorAll('[data-category="active"] ' + (viewMode==='chips'?'.unit-chip':'.unit-card')).length;
+      const implPhase=document.querySelectorAll('[data-category="implementation-phase"] ' + (viewMode==='chips'?'.unit-chip':'.unit-card')).length;
+      const total=document.querySelectorAll(viewMode==='chips'?'.unit-chip':'.unit-card').length;
       const percentage= total>0 ? Math.round(((active+implPhase)/total)*100) : 0;
       const pctEl=document.getElementById('percentage');
       if(pctEl) pctEl.textContent = percentage + '%';
@@ -506,15 +550,18 @@
     }
     function applyFiltersAndRender(){ renderAll(getFiltered()); }
 
-    /* =================== Drag & Drop =================== */
+    /* =================== Drag & Drop (standard view only) =================== */
     let draggedElement=null;
-    function handleDragStart(e){ draggedElement=this; this.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; }
-    function handleDragEnd(){ this.classList.remove('dragging'); draggedElement=null; }
+    function handleDragStart(e){ if(viewMode==='chips') return; draggedElement=this; this.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; }
+    function handleDragEnd(){ if(this.classList.contains('dragging')) this.classList.remove('dragging'); draggedElement=null; }
     function attachDragHandlers(card){ card.addEventListener('dragstart',handleDragStart); card.addEventListener('dragend',handleDragEnd); }
 
     $$('.column').forEach(column=>{
-      column.addEventListener('dragover', e=>{ e.preventDefault(); e.dataTransfer.dropEffect='move'; });
+      column.addEventListener('dragover', e=>{
+        if(viewMode==='chips') return; e.preventDefault(); e.dataTransfer.dropEffect='move';
+      });
       column.addEventListener('drop', e=>{
+        if(viewMode==='chips') return;
         e.preventDefault(); e.stopPropagation();
         if(!draggedElement) return;
         const newCat=column.dataset.category;
@@ -552,22 +599,24 @@
     /* =================== Add / Import =================== */
     function addUnit(){
       const unitType=document.getElementById('unitType').value;
-      const unitNumber=document.getElementById('unitNumber').value.trim();
-      const company=document.getElementById('farmName').value.trim();
-      const config=document.getElementById('config').value;
+      const unitNumber=(document.getElementById('unitNumber').value||'').trim();
+      const company=(document.getElementById('farmName').value||'').trim();
+      let   config=(document.getElementById('config').value||'').trim();
       const region=document.getElementById('region').value;
       const csmSel=document.getElementById('csm').value;
       const implDate=document.getElementById('implDate').value;
 
-      if(!unitType||!unitNumber||!config){ alert('Please fill in required fields'); return; }
+      if(!unitType||!unitNumber){ alert('Please fill in Unit Type and Unit Number'); return; }
       const id=`${unitType}${unitNumber}`;
       if(state.some(u=>u.id===id)){ alert(`Unit ${id} already exists.`); return; }
+
+      // Default config: SLAYER for S*, else Pending
+      if(!config){ config = id.startsWith('S') ? 'SLAYER' : 'Pending'; }
 
       const computedCategory=computeCategoryFromImplDate(implDate);
       state.push({ id, company:company||'Unknown', config, region:region||'', category:computedCategory, csm:csmSel||'', implDate:implDate||'', pinned:false });
       saveJSON(STORAGE_KEY,state);
 
-      // ensure config catalog includes new selection
       configs = uniquePush(configs, config);
       saveJSON(STORAGE_CONFIGS, configs);
       populateConfigSelects();
@@ -594,31 +643,26 @@
       lines.forEach(raw=>{
         // Expect: CSM, Unit, Customer, Region, Config(optional) — tab-separated
         const parts = raw.split('\t');
-        if (parts.length < 4) return; // need at least CSM, Unit, Customer, Region
+        if (parts.length < 4) return;
 
         const csm      = (parts[0]||'').trim();
         const unit     = (parts[1]||'').toUpperCase().trim();
         const customer = (parts[2]||'').trim();
         const region   = (parts[3]||'').trim();
-        const config   = (parts[4]||'').trim(); // optional
+        let   config   = (parts[4]||'').trim();
 
         if(!/^[RS]\d+$/i.test(unit)) return;
         if(state.some(u=>u.id===unit)) return;
 
+        if(!config){ config = unit.startsWith('S') ? 'SLAYER' : 'Pending'; }
+
         state.push({
-          id: unit,
-          company: customer || 'Unknown',
-          config: config || 'Pending',
-          region: region || '',
-          category: 'implementation-scheduled',
-          csm: csm,
-          implDate: '',
-          pinned: false
+          id: unit, company: customer || 'Unknown', config,
+          region: region || '', category: 'implementation-scheduled',
+          csm: csm, implDate: '', pinned: false
         });
 
-        // track configs seen on import
-        if(config) configs = uniquePush(configs, config);
-
+        configs = uniquePush(configs, config);
         imported++;
       });
 
@@ -627,7 +671,6 @@
         saveJSON(STORAGE_CONFIGS, configs);
         document.getElementById('importData').value='';
 
-        // Add any new CSMs from import
         Array.from(new Set(state.map(u=>(u.csm||'').trim()).filter(Boolean))).forEach(n=>csms=uniquePush(csms,n));
         saveJSON(STORAGE_CSMS, csms);
         populateAllCsms();
@@ -668,7 +711,6 @@
       applyFiltersAndRender();
     };
 
-    // NEW: Add Config from Edit modal
     e_config_add.onclick=()=>{
       const val=prompt('New Config (e.g., G-500-10):');
       const cleaned=(val||'').trim();
@@ -685,7 +727,6 @@
       const item=state.find(u=>u.id===id);
       if(!item) return;
 
-      // Ensure CSM/Config catalogs include this item's values
       if(item.csm && !csms.some(n=>n.toLowerCase()===item.csm.toLowerCase())){
         csms=uniquePush(csms,item.csm);
         saveJSON(STORAGE_CSMS, csms);
@@ -710,7 +751,6 @@
     }
     function closeEdit(){ editModal.classList.remove('active'); editingCard=null; }
 
-    // Preserve category unless implDate changed; when date changes, unpin so automation can apply
     function saveEdit(){
       if(!editingCard) return;
 
@@ -721,7 +761,6 @@
       const prevCategory = state[idx].category;
       const prevImpl     = state[idx].implDate || '';
 
-      // Gather edits
       const nextCompany  = e_company.value.trim();
       const nextConfig   = e_config.value;
       const nextRegion   = e_region.value;
@@ -733,7 +772,7 @@
 
       if (nextImpl !== prevImpl) {
         nextCategory = computeCategoryFromImplDate(nextImpl);
-        nextPinned   = false; // let automation take effect after a date change
+        nextPinned   = false;
       }
 
       state[idx] = {
@@ -747,7 +786,6 @@
         pinned:   nextPinned
       };
 
-      // ensure config catalog includes edited selection
       configs = uniquePush(configs, nextConfig);
       saveJSON(STORAGE_CONFIGS, configs);
       populateConfigSelects();
@@ -767,8 +805,9 @@
       closeEdit();
     }
 
-    // dblclick to open edit
+    // dblclick to open edit (still works in standard view)
     document.addEventListener('dblclick', e=>{
+      if(viewMode==='chips') return;
       const card=e.target.closest('.unit-card'); if(!card) return;
       if(card.classList.contains('dragging')) return;
       e.preventDefault(); e.stopPropagation();
@@ -785,7 +824,6 @@
       }
       if (!confirm('This will permanently remove ALL units from this browser. Continue?')) return;
 
-      // Clear units but keep CSMs and Configs
       state = [];
       saveJSON(STORAGE_KEY, state);
       applyFiltersAndRender();
@@ -811,10 +849,18 @@
     filterCsm.addEventListener('change', applyFiltersAndRender);
     filterStatus.addEventListener('change', applyFiltersAndRender);
 
+    /* =================== Chip View Toggle =================== */
+    function toggleChipView(){
+      viewMode = (viewMode === 'chips' ? 'standard' : 'chips');
+      localStorage.setItem(STORAGE_VIEW, viewMode);
+      syncToggleLabel();
+      applyFiltersAndRender();
+    }
+    window.toggleChipView = toggleChipView;
+
     /* =================== Boot =================== */
     populateAllCsms();
     populateConfigSelects();
-
     autoTransitionByDate();
     applyFiltersAndRender();
 
